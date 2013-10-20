@@ -1,6 +1,6 @@
 #include <windows.h>
 
-#define APP_ICON		100
+#define APP_ICON                100
 
 #ifdef RC_INVOKED
 
@@ -10,7 +10,7 @@
 // Version info viewable by Explorer
 #define _VM 1
 #define _VN 0
-#define _VI 15
+#define _VI 16
 #define _VB 0
 
 #ifndef mk_str

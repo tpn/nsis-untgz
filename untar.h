@@ -58,6 +58,7 @@ int makedir (char *newdir);
 
 #define BLOCKSIZE 512
 #define SHORTNAMESIZE 100
+#define PFXNAMESIZE 155
 
 struct tar_header
 {                       /* byte offset */
@@ -77,7 +78,7 @@ struct tar_header
   char devmajor[8];     /* 329 */
   char devminor[8];     /* 337 */
   char prefix[155];     /* 345 */
-                        /* 500 */
+  char fill[12];         /* 500 */ /* unused */
 };
 
 union tar_buffer {
