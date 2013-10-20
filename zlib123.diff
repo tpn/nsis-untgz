@@ -1,0 +1,822 @@
+--- \zlib\123\crc32.c	Mon Jun 13 01:56:08 2005
++++ crc32.c	Sat Nov 11 15:47:56 2006
+@@ -32,6 +32,7 @@
+ 
+ /* Find a four-byte integer type for crc32_little() and crc32_big(). */
+ #ifndef NOBYFOUR
++#undef STDC /* limits.h in vc8 forces inclusion of vc's stdlib */
+ #  ifdef STDC           /* need ANSI C limits.h to determine sizes */
+ #    include <limits.h>
+ #    define BYFOUR
+@@ -48,6 +49,9 @@
+ #        endif
+ #      endif
+ #    endif
++#  else  /* assume unsigned long works */
++#    define BYFOUR
++     typedef unsigned long u4;
+ #  endif /* STDC */
+ #endif /* !NOBYFOUR */
+ 
+--- \zlib\123\gzio.c	Mon Jul 11 22:31:48 2005
++++ gzio.c	Sat Nov 11 15:56:26 2006
+@@ -7,8 +7,6 @@
+ 
+ /* @(#) $Id$ */
+ 
+-#include <stdio.h>
+-
+ #include "zutil.h"
+ 
+ #ifdef NO_DEFLATE       /* for compatibility with old definition */
+@@ -149,18 +147,8 @@
+     if (s->mode == '\0') return destroy(s), (gzFile)Z_NULL;
+ 
+     if (s->mode == 'w') {
+-#ifdef NO_GZCOMPRESS
+         err = Z_STREAM_ERROR;
+-#else
+-        err = deflateInit2(&(s->stream), level,
+-                           Z_DEFLATED, -MAX_WBITS, DEF_MEM_LEVEL, strategy);
+-        /* windowBits is passed < 0 to suppress zlib header */
+-
+-        s->stream.next_out = s->outbuf = (Byte*)ALLOC(Z_BUFSIZE);
+-#endif
+-        if (err != Z_OK || s->outbuf == Z_NULL) {
+-            return destroy(s), (gzFile)Z_NULL;
+-        }
++        return destroy(s), (gzFile)Z_NULL;
+     } else {
+         s->stream.next_in  = s->inbuf = (Byte*)ALLOC(Z_BUFSIZE);
+ 
+@@ -183,21 +171,8 @@
+     if (s->file == NULL) {
+         return destroy(s), (gzFile)Z_NULL;
+     }
+-    if (s->mode == 'w') {
+-        /* Write a very simple .gz header:
+-         */
+-        fprintf(s->file, "%c%c%c%c%c%c%c%c%c%c", gz_magic[0], gz_magic[1],
+-             Z_DEFLATED, 0 /*flags*/, 0,0,0,0 /*time*/, 0 /*xflags*/, OS_CODE);
+-        s->start = 10L;
+-        /* We use 10L instead of ftell(s->file) to because ftell causes an
+-         * fflush on some systems. This version of the library doesn't use
+-         * start anyway in write mode, so this initialization is not
+-         * necessary.
+-         */
+-    } else {
+-        check_header(s); /* skip the .gz header */
+-        s->start = ftell(s->file) - s->stream.avail_in;
+-    }
++    check_header(s); /* skip the .gz header */
++    s->start = ftell(s->file) - s->stream.avail_in;
+ 
+     return (gzFile)s;
+ }
+@@ -212,46 +187,6 @@
+     return gz_open (path, mode, -1);
+ }
+ 
+-/* ===========================================================================
+-     Associate a gzFile with the file descriptor fd. fd is not dup'ed here
+-   to mimic the behavio(u)r of fdopen.
+-*/
+-gzFile ZEXPORT gzdopen (fd, mode)
+-    int fd;
+-    const char *mode;
+-{
+-    char name[46];      /* allow for up to 128-bit integers */
+-
+-    if (fd < 0) return (gzFile)Z_NULL;
+-    sprintf(name, "<fd:%d>", fd); /* for debugging */
+-
+-    return gz_open (name, mode, fd);
+-}
+-
+-/* ===========================================================================
+- * Update the compression level and strategy
+- */
+-int ZEXPORT gzsetparams (file, level, strategy)
+-    gzFile file;
+-    int level;
+-    int strategy;
+-{
+-    gz_stream *s = (gz_stream*)file;
+-
+-    if (s == NULL || s->mode != 'w') return Z_STREAM_ERROR;
+-
+-    /* Make room to allow flushing */
+-    if (s->stream.avail_out == 0) {
+-
+-        s->stream.next_out = s->outbuf;
+-        if (fwrite(s->outbuf, 1, Z_BUFSIZE, s->file) != Z_BUFSIZE) {
+-            s->z_err = Z_ERRNO;
+-        }
+-        s->stream.avail_out = Z_BUFSIZE;
+-    }
+-
+-    return deflateParams (&(s->stream), level, strategy);
+-}
+ 
+ /* ===========================================================================
+      Read a byte from a gz_stream; update next_in and avail_in. Return EOF
+@@ -363,11 +298,7 @@
+ 
+     if (s->stream.state != NULL) {
+         if (s->mode == 'w') {
+-#ifdef NO_GZCOMPRESS
+             err = Z_STREAM_ERROR;
+-#else
+-            err = deflateEnd(&(s->stream));
+-#endif
+         } else if (s->mode == 'r') {
+             err = inflateEnd(&(s->stream));
+         }
+@@ -551,211 +482,6 @@
+ }
+ 
+ 
+-#ifndef NO_GZCOMPRESS
+-/* ===========================================================================
+-     Writes the given number of uncompressed bytes into the compressed file.
+-   gzwrite returns the number of bytes actually written (0 in case of error).
+-*/
+-int ZEXPORT gzwrite (file, buf, len)
+-    gzFile file;
+-    voidpc buf;
+-    unsigned len;
+-{
+-    gz_stream *s = (gz_stream*)file;
+-
+-    if (s == NULL || s->mode != 'w') return Z_STREAM_ERROR;
+-
+-    s->stream.next_in = (Bytef*)buf;
+-    s->stream.avail_in = len;
+-
+-    while (s->stream.avail_in != 0) {
+-
+-        if (s->stream.avail_out == 0) {
+-
+-            s->stream.next_out = s->outbuf;
+-            if (fwrite(s->outbuf, 1, Z_BUFSIZE, s->file) != Z_BUFSIZE) {
+-                s->z_err = Z_ERRNO;
+-                break;
+-            }
+-            s->stream.avail_out = Z_BUFSIZE;
+-        }
+-        s->in += s->stream.avail_in;
+-        s->out += s->stream.avail_out;
+-        s->z_err = deflate(&(s->stream), Z_NO_FLUSH);
+-        s->in -= s->stream.avail_in;
+-        s->out -= s->stream.avail_out;
+-        if (s->z_err != Z_OK) break;
+-    }
+-    s->crc = crc32(s->crc, (const Bytef *)buf, len);
+-
+-    return (int)(len - s->stream.avail_in);
+-}
+-
+-
+-/* ===========================================================================
+-     Converts, formats, and writes the args to the compressed file under
+-   control of the format string, as in fprintf. gzprintf returns the number of
+-   uncompressed bytes actually written (0 in case of error).
+-*/
+-#ifdef STDC
+-#include <stdarg.h>
+-
+-int ZEXPORTVA gzprintf (gzFile file, const char *format, /* args */ ...)
+-{
+-    char buf[Z_PRINTF_BUFSIZE];
+-    va_list va;
+-    int len;
+-
+-    buf[sizeof(buf) - 1] = 0;
+-    va_start(va, format);
+-#ifdef NO_vsnprintf
+-#  ifdef HAS_vsprintf_void
+-    (void)vsprintf(buf, format, va);
+-    va_end(va);
+-    for (len = 0; len < sizeof(buf); len++)
+-        if (buf[len] == 0) break;
+-#  else
+-    len = vsprintf(buf, format, va);
+-    va_end(va);
+-#  endif
+-#else
+-#  ifdef HAS_vsnprintf_void
+-    (void)vsnprintf(buf, sizeof(buf), format, va);
+-    va_end(va);
+-    len = strlen(buf);
+-#  else
+-    len = vsnprintf(buf, sizeof(buf), format, va);
+-    va_end(va);
+-#  endif
+-#endif
+-    if (len <= 0 || len >= (int)sizeof(buf) || buf[sizeof(buf) - 1] != 0)
+-        return 0;
+-    return gzwrite(file, buf, (unsigned)len);
+-}
+-#else /* not ANSI C */
+-
+-int ZEXPORTVA gzprintf (file, format, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10,
+-                       a11, a12, a13, a14, a15, a16, a17, a18, a19, a20)
+-    gzFile file;
+-    const char *format;
+-    int a1, a2, a3, a4, a5, a6, a7, a8, a9, a10,
+-        a11, a12, a13, a14, a15, a16, a17, a18, a19, a20;
+-{
+-    char buf[Z_PRINTF_BUFSIZE];
+-    int len;
+-
+-    buf[sizeof(buf) - 1] = 0;
+-#ifdef NO_snprintf
+-#  ifdef HAS_sprintf_void
+-    sprintf(buf, format, a1, a2, a3, a4, a5, a6, a7, a8,
+-            a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20);
+-    for (len = 0; len < sizeof(buf); len++)
+-        if (buf[len] == 0) break;
+-#  else
+-    len = sprintf(buf, format, a1, a2, a3, a4, a5, a6, a7, a8,
+-                a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20);
+-#  endif
+-#else
+-#  ifdef HAS_snprintf_void
+-    snprintf(buf, sizeof(buf), format, a1, a2, a3, a4, a5, a6, a7, a8,
+-             a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20);
+-    len = strlen(buf);
+-#  else
+-    len = snprintf(buf, sizeof(buf), format, a1, a2, a3, a4, a5, a6, a7, a8,
+-                 a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20);
+-#  endif
+-#endif
+-    if (len <= 0 || len >= sizeof(buf) || buf[sizeof(buf) - 1] != 0)
+-        return 0;
+-    return gzwrite(file, buf, len);
+-}
+-#endif
+-
+-/* ===========================================================================
+-      Writes c, converted to an unsigned char, into the compressed file.
+-   gzputc returns the value that was written, or -1 in case of error.
+-*/
+-int ZEXPORT gzputc(file, c)
+-    gzFile file;
+-    int c;
+-{
+-    unsigned char cc = (unsigned char) c; /* required for big endian systems */
+-
+-    return gzwrite(file, &cc, 1) == 1 ? (int)cc : -1;
+-}
+-
+-
+-/* ===========================================================================
+-      Writes the given null-terminated string to the compressed file, excluding
+-   the terminating null character.
+-      gzputs returns the number of characters written, or -1 in case of error.
+-*/
+-int ZEXPORT gzputs(file, s)
+-    gzFile file;
+-    const char *s;
+-{
+-    return gzwrite(file, (char*)s, (unsigned)strlen(s));
+-}
+-
+-
+-/* ===========================================================================
+-     Flushes all pending output into the compressed file. The parameter
+-   flush is as in the deflate() function.
+-*/
+-local int do_flush (file, flush)
+-    gzFile file;
+-    int flush;
+-{
+-    uInt len;
+-    int done = 0;
+-    gz_stream *s = (gz_stream*)file;
+-
+-    if (s == NULL || s->mode != 'w') return Z_STREAM_ERROR;
+-
+-    s->stream.avail_in = 0; /* should be zero already anyway */
+-
+-    for (;;) {
+-        len = Z_BUFSIZE - s->stream.avail_out;
+-
+-        if (len != 0) {
+-            if ((uInt)fwrite(s->outbuf, 1, len, s->file) != len) {
+-                s->z_err = Z_ERRNO;
+-                return Z_ERRNO;
+-            }
+-            s->stream.next_out = s->outbuf;
+-            s->stream.avail_out = Z_BUFSIZE;
+-        }
+-        if (done) break;
+-        s->out += s->stream.avail_out;
+-        s->z_err = deflate(&(s->stream), flush);
+-        s->out -= s->stream.avail_out;
+-
+-        /* Ignore the second of two consecutive flushes: */
+-        if (len == 0 && s->z_err == Z_BUF_ERROR) s->z_err = Z_OK;
+-
+-        /* deflate has finished flushing only when it hasn't used up
+-         * all the available space in the output buffer:
+-         */
+-        done = (s->stream.avail_out != 0 || s->z_err == Z_STREAM_END);
+-
+-        if (s->z_err != Z_OK && s->z_err != Z_STREAM_END) break;
+-    }
+-    return  s->z_err == Z_STREAM_END ? Z_OK : s->z_err;
+-}
+-
+-int ZEXPORT gzflush (file, flush)
+-     gzFile file;
+-     int flush;
+-{
+-    gz_stream *s = (gz_stream*)file;
+-    int err = do_flush (file, flush);
+-
+-    if (err) return err;
+-    fflush(s->file);
+-    return  s->z_err == Z_STREAM_END ? Z_OK : s->z_err;
+-}
+-#endif /* NO_GZCOMPRESS */
+-
+ /* ===========================================================================
+       Sets the starting position for the next gzread or gzwrite on the given
+    compressed file. The offset represents a number of bytes in the
+@@ -777,31 +503,7 @@
+     }
+ 
+     if (s->mode == 'w') {
+-#ifdef NO_GZCOMPRESS
+         return -1L;
+-#else
+-        if (whence == SEEK_SET) {
+-            offset -= s->in;
+-        }
+-        if (offset < 0) return -1L;
+-
+-        /* At this point, offset is the number of zero bytes to write. */
+-        if (s->inbuf == Z_NULL) {
+-            s->inbuf = (Byte*)ALLOC(Z_BUFSIZE); /* for seeking */
+-            if (s->inbuf == Z_NULL) return -1L;
+-            zmemzero(s->inbuf, Z_BUFSIZE);
+-        }
+-        while (offset > 0)  {
+-            uInt size = Z_BUFSIZE;
+-            if (offset < Z_BUFSIZE) size = (uInt)offset;
+-
+-            size = gzwrite(file, s->inbuf, size);
+-            if (size == 0) return -1L;
+-
+-            offset -= size;
+-        }
+-        return s->in;
+-#endif
+     }
+     /* Rest of function is for reading only */
+ 
+@@ -958,69 +660,8 @@
+     if (s == NULL) return Z_STREAM_ERROR;
+ 
+     if (s->mode == 'w') {
+-#ifdef NO_GZCOMPRESS
+         return Z_STREAM_ERROR;
+-#else
+-        if (do_flush (file, Z_FINISH) != Z_OK)
+-            return destroy((gz_stream*)file);
+-
+-        putLong (s->file, s->crc);
+-        putLong (s->file, (uLong)(s->in & 0xffffffff));
+-#endif
+     }
+     return destroy((gz_stream*)file);
+ }
+ 
+-#ifdef STDC
+-#  define zstrerror(errnum) strerror(errnum)
+-#else
+-#  define zstrerror(errnum) ""
+-#endif
+-
+-/* ===========================================================================
+-     Returns the error message for the last error which occurred on the
+-   given compressed file. errnum is set to zlib error number. If an
+-   error occurred in the file system and not in the compression library,
+-   errnum is set to Z_ERRNO and the application may consult errno
+-   to get the exact error code.
+-*/
+-const char * ZEXPORT gzerror (file, errnum)
+-    gzFile file;
+-    int *errnum;
+-{
+-    char *m;
+-    gz_stream *s = (gz_stream*)file;
+-
+-    if (s == NULL) {
+-        *errnum = Z_STREAM_ERROR;
+-        return (const char*)ERR_MSG(Z_STREAM_ERROR);
+-    }
+-    *errnum = s->z_err;
+-    if (*errnum == Z_OK) return (const char*)"";
+-
+-    m = (char*)(*errnum == Z_ERRNO ? zstrerror(errno) : s->stream.msg);
+-
+-    if (m == NULL || *m == '\0') m = (char*)ERR_MSG(s->z_err);
+-
+-    TRYFREE(s->msg);
+-    s->msg = (char*)ALLOC(strlen(s->path) + strlen(m) + 3);
+-    if (s->msg == Z_NULL) return (const char*)ERR_MSG(Z_MEM_ERROR);
+-    strcpy(s->msg, s->path);
+-    strcat(s->msg, ": ");
+-    strcat(s->msg, m);
+-    return (const char*)s->msg;
+-}
+-
+-/* ===========================================================================
+-     Clear the error and end-of-file flags, and do the same for the real file.
+-*/
+-void ZEXPORT gzclearerr (file)
+-    gzFile file;
+-{
+-    gz_stream *s = (gz_stream*)file;
+-
+-    if (s == NULL) return;
+-    if (s->z_err != Z_STREAM_END) s->z_err = Z_OK;
+-    s->z_eof = 0;
+-    clearerr(s->file);
+-}
+--- \zlib\123\zconf.h	Sat May 28 08:40:36 2005
++++ zconf.h	Sat Nov 11 15:47:56 2006
+@@ -301,6 +301,10 @@
+ #  define z_off_t long
+ #endif
+ 
++#if 1 /* MINICLIB */
++#  define NO_vsnprintf
++#endif
++
+ #if defined(__OS400__)
+ #  define NO_vsnprintf
+ #endif
+--- \zlib\123\zlib.h	Mon Jul 18 04:26:50 2005
++++ zlib.h	Sat Nov 11 15:47:38 2006
+@@ -37,8 +37,8 @@
+ extern "C" {
+ #endif
+ 
+-#define ZLIB_VERSION "1.2.3"
+-#define ZLIB_VERNUM 0x1230
++#define ZLIB_VERSION "1.2.3.f-untgz"
++#define ZLIB_VERNUM 0x123f
+ 
+ /*
+      The 'zlib' compression library provides in-memory compression and
+--- \zlib\123\zutil.c	Mon Jun 13 02:37:50 2005
++++ zutil.c	Sat Nov 11 16:04:00 2006
+@@ -7,296 +7,8 @@
+ 
+ #include "zutil.h"
+ 
+-#ifndef NO_DUMMY_DECL
+-struct internal_state      {int dummy;}; /* for buggy compilers */
+-#endif
+-
+-const char * const z_errmsg[10] = {
+-"need dictionary",     /* Z_NEED_DICT       2  */
+-"stream end",          /* Z_STREAM_END      1  */
+-"",                    /* Z_OK              0  */
+-"file error",          /* Z_ERRNO         (-1) */
+-"stream error",        /* Z_STREAM_ERROR  (-2) */
+-"data error",          /* Z_DATA_ERROR    (-3) */
+-"insufficient memory", /* Z_MEM_ERROR     (-4) */
+-"buffer error",        /* Z_BUF_ERROR     (-5) */
+-"incompatible version",/* Z_VERSION_ERROR (-6) */
+-""};
+-
+-
+-const char * ZEXPORT zlibVersion()
+-{
+-    return ZLIB_VERSION;
+-}
+-
+-uLong ZEXPORT zlibCompileFlags()
+-{
+-    uLong flags;
+-
+-    flags = 0;
+-    switch (sizeof(uInt)) {
+-    case 2:     break;
+-    case 4:     flags += 1;     break;
+-    case 8:     flags += 2;     break;
+-    default:    flags += 3;
+-    }
+-    switch (sizeof(uLong)) {
+-    case 2:     break;
+-    case 4:     flags += 1 << 2;        break;
+-    case 8:     flags += 2 << 2;        break;
+-    default:    flags += 3 << 2;
+-    }
+-    switch (sizeof(voidpf)) {
+-    case 2:     break;
+-    case 4:     flags += 1 << 4;        break;
+-    case 8:     flags += 2 << 4;        break;
+-    default:    flags += 3 << 4;
+-    }
+-    switch (sizeof(z_off_t)) {
+-    case 2:     break;
+-    case 4:     flags += 1 << 6;        break;
+-    case 8:     flags += 2 << 6;        break;
+-    default:    flags += 3 << 6;
+-    }
+-#ifdef DEBUG
+-    flags += 1 << 8;
+-#endif
+-#if defined(ASMV) || defined(ASMINF)
+-    flags += 1 << 9;
+-#endif
+-#ifdef ZLIB_WINAPI
+-    flags += 1 << 10;
+-#endif
+-#ifdef BUILDFIXED
+-    flags += 1 << 12;
+-#endif
+-#ifdef DYNAMIC_CRC_TABLE
+-    flags += 1 << 13;
+-#endif
+-#ifdef NO_GZCOMPRESS
+-    flags += 1L << 16;
+-#endif
+-#ifdef NO_GZIP
+-    flags += 1L << 17;
+-#endif
+-#ifdef PKZIP_BUG_WORKAROUND
+-    flags += 1L << 20;
+-#endif
+-#ifdef FASTEST
+-    flags += 1L << 21;
+-#endif
+-#ifdef STDC
+-#  ifdef NO_vsnprintf
+-        flags += 1L << 25;
+-#    ifdef HAS_vsprintf_void
+-        flags += 1L << 26;
+-#    endif
+-#  else
+-#    ifdef HAS_vsnprintf_void
+-        flags += 1L << 26;
+-#    endif
+-#  endif
+-#else
+-        flags += 1L << 24;
+-#  ifdef NO_snprintf
+-        flags += 1L << 25;
+-#    ifdef HAS_sprintf_void
+-        flags += 1L << 26;
+-#    endif
+-#  else
+-#    ifdef HAS_snprintf_void
+-        flags += 1L << 26;
+-#    endif
+-#  endif
+-#endif
+-    return flags;
+-}
+-
+-#ifdef DEBUG
+-
+-#  ifndef verbose
+-#    define verbose 0
+-#  endif
+-int z_verbose = verbose;
+-
+-void z_error (m)
+-    char *m;
+-{
+-    fprintf(stderr, "%s\n", m);
+-    exit(1);
+-}
+-#endif
+-
+-/* exported to allow conversion of error code to string for compress() and
+- * uncompress()
+- */
+-const char * ZEXPORT zError(err)
+-    int err;
+-{
+-    return ERR_MSG(err);
+-}
+-
+-#if defined(_WIN32_WCE)
+-    /* The Microsoft C Run-Time Library for Windows CE doesn't have
+-     * errno.  We define it as a global variable to simplify porting.
+-     * Its value is always 0 and should not be used.
+-     */
+-    int errno = 0;
+-#endif
+-
+-#ifndef HAVE_MEMCPY
+-
+-void zmemcpy(dest, source, len)
+-    Bytef* dest;
+-    const Bytef* source;
+-    uInt  len;
+-{
+-    if (len == 0) return;
+-    do {
+-        *dest++ = *source++; /* ??? to be unrolled */
+-    } while (--len != 0);
+-}
+-
+-int zmemcmp(s1, s2, len)
+-    const Bytef* s1;
+-    const Bytef* s2;
+-    uInt  len;
+-{
+-    uInt j;
+-
+-    for (j = 0; j < len; j++) {
+-        if (s1[j] != s2[j]) return 2*(s1[j] > s2[j])-1;
+-    }
+-    return 0;
+-}
+-
+-void zmemzero(dest, len)
+-    Bytef* dest;
+-    uInt  len;
+-{
+-    if (len == 0) return;
+-    do {
+-        *dest++ = 0;  /* ??? to be unrolled */
+-    } while (--len != 0);
+-}
+-#endif
+-
+-
+-#ifdef SYS16BIT
+-
+-#ifdef __TURBOC__
+-/* Turbo C in 16-bit mode */
+-
+-#  define MY_ZCALLOC
+-
+-/* Turbo C malloc() does not allow dynamic allocation of 64K bytes
+- * and farmalloc(64K) returns a pointer with an offset of 8, so we
+- * must fix the pointer. Warning: the pointer must be put back to its
+- * original form in order to free it, use zcfree().
+- */
+-
+-#define MAX_PTR 10
+-/* 10*64K = 640K */
+-
+-local int next_ptr = 0;
+-
+-typedef struct ptr_table_s {
+-    voidpf org_ptr;
+-    voidpf new_ptr;
+-} ptr_table;
+-
+-local ptr_table table[MAX_PTR];
+-/* This table is used to remember the original form of pointers
+- * to large buffers (64K). Such pointers are normalized with a zero offset.
+- * Since MSDOS is not a preemptive multitasking OS, this table is not
+- * protected from concurrent access. This hack doesn't work anyway on
+- * a protected system like OS/2. Use Microsoft C instead.
+- */
+-
+-voidpf zcalloc (voidpf opaque, unsigned items, unsigned size)
+-{
+-    voidpf buf = opaque; /* just to make some compilers happy */
+-    ulg bsize = (ulg)items*size;
+-
+-    /* If we allocate less than 65520 bytes, we assume that farmalloc
+-     * will return a usable pointer which doesn't have to be normalized.
+-     */
+-    if (bsize < 65520L) {
+-        buf = farmalloc(bsize);
+-        if (*(ush*)&buf != 0) return buf;
+-    } else {
+-        buf = farmalloc(bsize + 16L);
+-    }
+-    if (buf == NULL || next_ptr >= MAX_PTR) return NULL;
+-    table[next_ptr].org_ptr = buf;
+-
+-    /* Normalize the pointer to seg:0 */
+-    *((ush*)&buf+1) += ((ush)((uch*)buf-0) + 15) >> 4;
+-    *(ush*)&buf = 0;
+-    table[next_ptr++].new_ptr = buf;
+-    return buf;
+-}
+-
+-void  zcfree (voidpf opaque, voidpf ptr)
+-{
+-    int n;
+-    if (*(ush*)&ptr != 0) { /* object < 64K */
+-        farfree(ptr);
+-        return;
+-    }
+-    /* Find the original pointer */
+-    for (n = 0; n < next_ptr; n++) {
+-        if (ptr != table[n].new_ptr) continue;
+-
+-        farfree(table[n].org_ptr);
+-        while (++n < next_ptr) {
+-            table[n-1] = table[n];
+-        }
+-        next_ptr--;
+-        return;
+-    }
+-    ptr = opaque; /* just to make some compilers happy */
+-    Assert(0, "zcfree: ptr not found");
+-}
+-
+-#endif /* __TURBOC__ */
+-
+-
+-#ifdef M_I86
+-/* Microsoft C in 16-bit mode */
+-
+-#  define MY_ZCALLOC
+-
+-#if (!defined(_MSC_VER) || (_MSC_VER <= 600))
+-#  define _halloc  halloc
+-#  define _hfree   hfree
+-#endif
+-
+-voidpf zcalloc (voidpf opaque, unsigned items, unsigned size)
+-{
+-    if (opaque) opaque = 0; /* to make compiler happy */
+-    return _halloc((long)items, size);
+-}
+-
+-void  zcfree (voidpf opaque, voidpf ptr)
+-{
+-    if (opaque) opaque = 0; /* to make compiler happy */
+-    _hfree(ptr);
+-}
+-
+-#endif /* M_I86 */
+-
+-#endif /* SYS16BIT */
+-
+-
+ #ifndef MY_ZCALLOC /* Any system without a special alloc function */
+ 
+-#ifndef STDC
+-extern voidp  malloc OF((uInt size));
+-extern voidp  calloc OF((uInt items, uInt size));
+-extern void   free   OF((voidpf ptr));
+-#endif
+-
+ voidpf zcalloc (opaque, items, size)
+     voidpf opaque;
+     unsigned items;
+--- \zlib\123\zutil.h	Mon Jul 11 22:35:48 2005
++++ zutil.h	Sat Nov 11 15:59:38 2006
+@@ -16,28 +16,7 @@
+ #define ZLIB_INTERNAL
+ #include "zlib.h"
+ 
+-#ifdef STDC
+-#  ifndef _WIN32_WCE
+-#    include <stddef.h>
+-#  endif
+-#  include <string.h>
+-#  include <stdlib.h>
+-#endif
+-#ifdef NO_ERRNO_H
+-#   ifdef _WIN32_WCE
+-      /* The Microsoft C Run-Time Library for Windows CE doesn't have
+-       * errno.  We define it as a global variable to simplify porting.
+-       * Its value is always 0 and should not be used.  We rename it to
+-       * avoid conflict with other libraries that use the same workaround.
+-       */
+-#     define errno z_errno
+-#   endif
+-    extern int errno;
+-#else
+-#  ifndef _WIN32_WCE
+-#    include <errno.h>
+-#  endif
+-#endif
++#include "../miniclib.h"
+ 
+ #ifndef local
+ #  define local static
+@@ -152,12 +131,12 @@
+ #endif
+ 
+ #if (defined(_MSC_VER) && (_MSC_VER > 600))
++#  ifndef _PTRDIFF_T_DEFINED
++     typedef int ptrdiff_t;
++#    define _PTRDIFF_T_DEFINED
++#  endif
+ #  if defined(_WIN32_WCE)
+ #    define fdopen(fd,mode) NULL /* No fdopen() */
+-#    ifndef _PTRDIFF_T_DEFINED
+-       typedef int ptrdiff_t;
+-#      define _PTRDIFF_T_DEFINED
+-#    endif
+ #  else
+ #    define fdopen(fd,type)  _fdopen(fd,type)
+ #  endif

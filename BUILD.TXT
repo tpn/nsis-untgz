@@ -1,0 +1,47 @@
+untgz plugin for NSIS v2
+untgz - unzip like replacement plugin, except for gzipped tarballs
+KJD <jeremyd@fdos.org>
+
+
+  To build:
+  - extract in the NSIS2 Contrib\ directory (along side the other
+    NSIS plugins).  All needed files are included in archive.
+  - copy either the MSVC6\*.* or MSVC7\*.* or MSVC8\*.* project files to
+    Contrib\untgz\ directory, then open the project file.
+  - From the build menu select Release (or Debug) build and build.
+    The Release build will place untgz.dll in the ../../Plugins directory.
+  - Optional: upx the plugin, upx --best ..\..\Plugins\untgz.dll
+
+  Primary releases built using MSVC 8 (Express version + SKD) and
+  the included project files.  Previous releases built with 
+  MSVC 6 (optimizing compiler).  The MSVC 7 project files are the
+  MSVC 6 ones converted to MSVC.NET (aka 7.0) and tested with 
+  MSVC.NET standard (non-optimizing).  The project files should work
+  with MSVC.NET2003 (aka 7.1), though some adjustments to the the
+  miniclib may be necessary for the optimizing version of MSVC 7.x
+  (MSVC 7 project may be out of date).
+
+  For makefiles or generating your own project, the important settings
+  are no default libraries (-nodefaultlib), but do link with Windows
+  Kernel32 and User32 (kernel32.lib user32.lib), and may still be
+  necessary to keep from needing helper function (-Gs16000).
+  The include path must also be updated to include the zlib subdirectory
+  (-I./zlib).
+  E.g. -opt:nowin98 -machine:I386 -nodefaultlib -Gs16000 kernel32.lib
+       user32.lib -I./zlib
+  Then just include all the C/C++ files in the archive (.\untgz.cpp, 
+  .\nsisUtils.c, .\miniclib.c, .\untar.c, .\zlib\*.c, .\lzma\*.c,
+  and .\untgz.rc).
+
+
+Note: zlib included is modifed from released version to trim down its
+size and use included mini-c-library.  Currently based on zlib version 1.2.3,
+see zlib123.diff for exact differences (diff with files from zlib version archive).
+LZMA support uses C version unmodified; only needed files included though.
+Bzlib includede is modified from released version to trim down its size
+and use included mini-c-library and file I/O through zlib (pass through mode).
+Currently based on BZip2 version 1.0.3, see bz2103.diff for exact differences,
+other than files not included; bz2.h is derived from bzlib.h.
+
+KJD
+20071110

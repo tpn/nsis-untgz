@@ -1,0 +1,7 @@
+This is a slightly modified version of BZip2 library.
+Only the needed files are included, and most unneeded
+functionality has been stripped.  It uses the miniclib
+included with the NSIS plugin and so is a combination
+of bzlib compiled with & without STDIO support.
+
+KJD

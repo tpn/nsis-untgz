@@ -1,0 +1,88 @@
+untgz plugin for NSIS v2
+untgz - unzip like replacement plugin, except for gzipped tarballs
+KJD <jeremyd@fdos.org>
+
+
+HISTORY:
+- 20030101  KJD  1.0.0
+  initial release (used for AbiWord v2 as a replacement for spawning unzip.exe)
+- 20030103  KJD  1.0.1
+  modified to not require c runtime library and added version resource
+  (note still links with crt for some oddball VC functions stkchk, chkesp, & allmul)
+- 20030109  KJD  1.0.2
+  implemented extract (include) and don't extract (exclude) list parsing
+  cleaned up compile some (no longer needs to link with MSVCRT for some static functions
+  added MS VC 6 project file (makefile generated from this)
+  moved extraction from tar.gz code (mostly untgz.c from zlib anyway) into separate file from plugin
+- 20030115  KJD  1.0.3
+  fixed stack bug, rearranged options so doesn't read past called options
+  placed utility functions into separate file (so easier for others to reuse if wanted)
+  added example/test files
+- 20030920  KJD  1.0.4
+  correct Makefile.abi, adjust source so doesn't use intrinsic memcpy/memset functions
+  even when /Oi (enable intrinsics) is given (e.g. via /O2)
+- 20040408  KJD  1.0.5
+  patch by Tavella Gaston to correctly return an error 'status' when we fail
+  to extract from the tarball
+  updated example.nsi to demonstrate errors and added truncated examplecorrupt.tgz
+- 20041128  KJD  1.0.6
+  a little late but anyway, handle zero (0) byte files in tarballs as requested by 
+  Brian Smith (amusing as I went to a college with a different Brian Smith :-)
+- 20041226  KJD  1.0.7
+  removed potential issue where plugin 1st attempted to create file (to extract)
+  then only if that failed junked any path stored in tarball then try again,
+  it now only tries once after either junking path or attempting to create path.
+  Added but not compiled in by default function to strip paths of leading root (\)
+  or parent (..) references.
+  Added mkdummyfiles.cpp, creates set of dummy files for testing purposes, see source.
+  Added plgntester.cpp, can be used to run (test) plugins outside of an installer;
+  see plgntester.txt for more information.
+- 20041227  KJD  1.0.8
+  changed to use NSIS' included zlib (more-or-less), reduced size in half
+  added check to ensure header chksum appears valid
+  treat type '7' (contiguous files) as regular files instead of ignoring
+  moved plgntester to own archive
+  add MSVC 7 project files
+  *tested and appears to work, however due to changes, problems may still exist*
+- 20050629  KJD  1.0.9
+  bugfix, some tarballs would fail to inflate correctly causing extraction
+  failure due to issue with used zlib, therefore updated to zlib 1.2.2 and
+  no longer using NSIS' included zlib (unfortunately plugin size increased).
+  changed -d option so sets working directory after opening tarball; note:
+  this may require changes in your installer if you relied on tarball being
+  in same directory as specified by -d instead of providing path to it;
+  so current directory at time of call is used for tarball without path
+  as expected.  Additionally, as -d will attempt to create path if it does
+  not exist, this has been moved so only final -d path creation tried.
+  Added experimental support for GNU tar long names (max 255 char limit).
+- 20050702  KJD  1.0.10
+  gzipped (.tgz) and uncompressed (.tar) TAR file handling unchanged.
+  added initial support for other compression methods, must be specified manually.
+  implemented support for LZMA compressed tarballs (.tar.lzma or possibly? .tlz)
+- 20060327  KJD  1.0.11
+  added projects files for VC8 (MS VC Express 2005 + MS Windows 2003R2 SDK),
+  note this required predefining a few more defines to avoid inclusion of 
+  MSVC8's clib and changing crc32.c to explicitly using unsigned long instead
+  of a type based on limits.h (vc8's causes conflicts with included miniclib).
+  To reduce plugin size by about 7KB one can recompile crc32.c with NOBYFOUR.
+- 20061113  KJD  1.0.12-pre
+  implemented KEEP (-k) and UPDATE (-u) options
+  Warning: now aborts with error if fails to create/overwrite existing file,
+  prior versions merely displayed a message indicating failure to extract
+  and returned as though all files successfully extracted
+  Updated to zlib 1.2.3
+  Note: prerelease, should fully work but still need to test -k and -u options
+  some more, possibly add option to continue by skipping file(s) on errors.
+- 20061118  KJD  1.0.13
+  Updated to lzma sdk 4.43
+  integrated BZip2 (v1.0.3) support using miniclib
+- 20071106  KJD  1.0.14
+  Fix minor resource leak, missing FindClose call if -u and file skipped
+  Releases now built with VC8 (MS VC Express 2005 + MS Windows Platform SDK)
+  (prior releases built with MSVC6)
+- 20071107  KJD  1.0.15
+  Automatically determine compression type if not explicity indicated.
+  Split README.TXT into multiple files to ease reading.
+
+KJD
+20071110

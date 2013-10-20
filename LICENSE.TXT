@@ -1,0 +1,181 @@
+untgz plugin for NSIS v2
+untgz - unzip like replacement plugin, except for gzipped tarballs
+KJD <jeremyd@fdos.org>
+
+  This software based on NSIS exDLL (example plugin) and zlib library.
+  I personally add no additional copyright, so the license is the
+  combination of NSIS exDLL (example plugin) and decompression
+  libraries used.  For basic gzip'd tarballs (which rely on zlib),
+  this is essentially MIT/BSD licensed.  Support for lzma compressed
+  tarballs requires the LZMA files and their LGPL/CPL with exception
+  license.  Support for bz2 compressed tarballs requires bzlib (BZip2)
+  related files and its BSD-style license.
+  
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors (or copyright holders) be
+  held liable for any damages arising from the use of this software.
+
+
+---
+ * Please note: all material here other than those by KJD
+ * have been taken from the respective author/copyright holder's
+ * work, do not contact them regarding these [my] changes.
+ * Corrections/additions/ or information to obtain original
+ * versions, please contact me: jeremyd --at-- fdos.org
+ * (defunct: jeremyd@computer.org)
+---
+
+/*
+ * This plugin largely based on untgz sample included with zlib:
+ *
+ * untgz.c -- Display contents and/or extract file from
+ * a gzip'd TAR file
+ * written by "Pedro A. Aranda Guti\irrez" <paag@tid.es>
+ * adaptation to Unix by Jean-loup Gailly <jloup@gzip.org>
+ */
+
+--- Large Portions from ZLIB general purpose compression library ---
+    version 1.2.3, July 18th, 2005
+    Copyright (C) 1995-2005 Jean-loup Gailly and Mark Adler
+
+    version 1.2.2, October 3rd, 2004
+    Copyright (C) 1995-2004 Jean-loup Gailly and Mark Adler
+
+    version 1.1.4, March 11th, 2002
+    Copyright (C) 1995-2002 Jean-loup Gailly and Mark Adler
+
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
+
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
+
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
+
+--- Portions from NSIS, especially ExDLL (Example NSIS Plugin) ---
+    Copyright (C) 1999-2002 Nullsoft, Inc.
+
+  This software is provided 'as-is', without any express or implied
+  warranty. In no event will the authors be held liable for any damages
+  arising from the use of this software. 
+
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
+
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+
+  3. This notice may not be removed or altered from any source distribution.
+
+--- Portions from ExtractDLL v0.1 beta ---
+    Copyright 2002 
+    by Tim Kosse
+    tim.kosse@gmx.de
+
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
+
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
+
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
+
+--- LZMA support from 7Zip's LZMA SDK ---
+    LZMA SDK 4.23  Copyright (C) 1999-2005 Igor Pavlov
+    LZMA SDK 4.40 Copyright (c) 1999-2006 Igor Pavlov (2006-05-01)
+
+  LZMA SDK is licensed under two licenses:
+  (see lzma directory for full license text of LGPL and CPL)
+  1) GNU Lesser General Public License (GNU LGPL)
+  2) Common Public License (CPL)
+  It means that you can select one of these two licenses and 
+  follow rules of that license.
+
+  SPECIAL EXCEPTION
+  Igor Pavlov, as the author of this code, expressly permits you 
+  to statically or dynamically link your code (or bind by name) 
+  to the files from LZMA SDK without subjecting your linked 
+  code to the terms of the CPL or GNU LGPL. 
+  Any modifications or additions to files from LZMA SDK, however, 
+  are subject to the GNU LGPL or CPL terms.
+
+  SPECIAL EXCEPTION allows you to use LZMA SDK in applications with closed code, 
+  while you keep LZMA SDK code unmodified.
+
+  SPECIAL EXCEPTION #2: Igor Pavlov, as the author of this code, expressly permits 
+  you to use this code under the same terms and conditions contained in the License 
+  Agreement you have for any previous version of LZMA SDK developed by Igor Pavlov.
+
+  SPECIAL EXCEPTION #2 allows owners of proprietary licenses to use latest version 
+  of LZMA SDK as update for previous versions.
+
+  SPECIAL EXCEPTION #3: Igor Pavlov, as the author of this code, expressly permits 
+  you to use code of examples (LzmaTest.c, LzmaStateTest.c, LzmaAlone.cpp) as 
+  public domain code. 
+
+--- BZip2 support provided from modified libbzip2 ---
+  This program, "bzip2", the associated library "libbzip2", and all
+  documentation, are copyright (C) 1996-2005 Julian R Seward.  All
+  rights reserved.
+  
+  Redistribution and use in source and binary forms, with or without
+  modification, are permitted provided that the following conditions
+  are met:
+  
+  1. Redistributions of source code must retain the above copyright
+     notice, this list of conditions and the following disclaimer.
+  
+  2. The origin of this software must not be misrepresented; you must 
+     not claim that you wrote the original software.  If you use this 
+     software in a product, an acknowledgment in the product 
+     documentation would be appreciated but is not required.
+  
+  3. Altered source versions must be plainly marked as such, and must
+     not be misrepresented as being the original software.
+  
+  4. The name of the author may not be used to endorse or promote 
+     products derived from this software without specific prior written 
+     permission.
+  
+  THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS
+  OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+  WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+  ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+  DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+  DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+  GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+  WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  
+  Julian Seward, Cambridge, UK.
+  jseward@acm.org
+  bzip2/libbzip2 version 1.0.3 of 15 February 2005
+
+--- ---
+
+KJD
+20071110
