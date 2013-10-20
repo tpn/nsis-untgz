@@ -1,0 +1,123 @@
+diff -u3 untgz-1.15/untar.c untgz/untar.c
+--- untgz-1.15/untar.c	Wed Nov  7 19:06:54 2007
++++ untgz/untar.c	Mon Oct 12 16:56:12 2009
+@@ -15,7 +15,7 @@
+ 
+ /*
+   For tar format see
+-  http://cdrecord.berlios.de/old/private/man/star.html
++  http://cdrecord.berlios.de/old/private/man/star/star.4.html
+   http://www.mkssoftware.com/docs/man4/tar.4.asp 
+   http://www.delorie.com/gnu/docs/tar/tar_toc.html
+ 
+@@ -222,6 +222,34 @@
+ }
+ 
+ 
++/* combines elements from tar header to produce
++ * full [long] filename; prefix + [/] + name
++ */
++void getFullName(union tar_buffer *buffer, char *fname)
++{
++	int len = 0;
++
++	/* NOTE: prepend buffer.head.prefix if tar archive expected to have it */
++	if (*(buffer->header.prefix) && (*(buffer->header.prefix) != ' '))
++	{
++		/* copy over prefix */
++		lstrcpyn(fname,buffer->header.prefix, sizeof(buffer->header.prefix));
++		fname[sizeof(buffer->header.prefix)-1] = '\0';
++		/* ensure ends in dir separator, implied after if full prefix size used */
++		len = lstrlen(fname)-1; /* assumed by test above at least 1 character */
++		if ((fname[len]!='/') && (fname[len]!='\\'))
++		{
++			len++;
++			fname[len]='/';
++		}
++		len++; /* index of 1st character after dir separator */
++	}
++
++	/* copy over filename portion */
++	lstrcpyn(fname+len,buffer->header.name, sizeof(buffer->header.name));
++	fname[len+sizeof(buffer->header.name)-1] = '\0'; /* ensure terminated */
++}
++
+ 
+ /* returns a pointer to a static buffer
+  * containing fname after removing all but
+@@ -489,14 +517,14 @@
+       tartime = (time_t)getoct(buffer.header.mtime,12);
+ 
+       /* copy over filename chunk from header, avoiding overruns */
+-      if (getheader == 1) /* use normal (short) filename from header */
++      if (getheader == 1) /* use normal (short or posix long) filename from header */
+       {
+-        /* NOTE: prepend buffer.head.prefix if tar archive expected to have it */
+-        lstrcpyn(fname,buffer.header.name, sizeof(buffer.header.name));
+-        fname[SHORTNAMESIZE-1] = '\0'; /* ensure terminated */
++        /* NOTE: prepends any prefix, including separator, and ensures terminated */
++		getFullName(&buffer, fname);
+       }
+       else /* use (GNU) long filename that preceeded this header */
+       {
++#if 0
+         /* if (strncmp(fname,buffer.header.name,SHORTNAMESIZE-1) != 0) */
+         char fs[SHORTNAMESIZE];   /* force strings to same max len, then compare */
+         lstrcpyn(fs, fname, SHORTNAMESIZE);
+@@ -508,6 +536,9 @@
+           cm_cleanup(cm);
+           return -1;
+         }
++#else
++		PrintMessage("tgz_extract: using GNU long filename [%s]", fname);
++#endif
+       }
+       /* LogMessage("buffer.header.name is:");  LogMessage(fname); */
+ 
+diff -u3 untgz-1.15/untar.h untgz/untar.h
+--- untgz-1.15/untar.h	Wed Nov  7 19:59:14 2007
++++ untgz/untar.h	Mon Oct 12 16:53:56 2009
+@@ -58,6 +58,7 @@
+ 
+ #define BLOCKSIZE 512
+ #define SHORTNAMESIZE 100
++#define PFXNAMESIZE 155
+ 
+ struct tar_header
+ {                       /* byte offset */
+@@ -77,7 +78,7 @@
+   char devmajor[8];     /* 329 */
+   char devminor[8];     /* 337 */
+   char prefix[155];     /* 345 */
+-                        /* 500 */
++  char fill[12];         /* 500 */ /* unused */
+ };
+ 
+ union tar_buffer {
+Only in untgz: untgz.aps
+Binary files untgz-1.15/untgz.dll and untgz/untgz.dll differ
+Only in untgz: untgz.dsp
+Only in untgz: untgz.dsw
+Only in untgz: untgz.ncb
+Only in untgz: untgz.opt
+Only in untgz: untgz.plg
+diff -u3 untgz-1.15/untgz.rc untgz/untgz.rc
+--- untgz-1.15/untgz.rc	Sat Nov 10 11:01:52 2007
++++ untgz/untgz.rc	Mon Oct 12 17:48:56 2009
+@@ -1,6 +1,6 @@
+ #include <windows.h>
+ 
+-#define APP_ICON		100
++#define APP_ICON                100
+ 
+ #ifdef RC_INVOKED
+ 
+@@ -10,7 +10,7 @@
+ // Version info viewable by Explorer
+ #define _VM 1
+ #define _VN 0
+-#define _VI 15
++#define _VI 16
+ #define _VB 0
+ 
+ #ifndef mk_str
