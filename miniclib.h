@@ -34,7 +34,7 @@ extern int errno;
 #define _TEXT(x) __T(x)
 #endif
 char * _T2A(unsigned short *str);
-unsigned short * _A2T(char *str);
+#define _A2T(x) _A2U(x)
 #define _tcscat wcscat
 #define _tcscpy wcscpy
 #define _tcscpyn wcsncpy
@@ -53,6 +53,7 @@ unsigned short * _A2T(char *str);
 #define _tcscmp strcmp
 #define _tcslen strlen
 #endif
+unsigned short * _A2U(char *str);
 
 void * malloc(size_t size);
 void * calloc(size_t num, size_t size);

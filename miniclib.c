@@ -329,17 +329,16 @@ FILE *_fdopen(int handle, const char *mode)
 }
 
 
+unsigned char staticCnvBuffer[1024*2]; /* temp buffer, holds ASCII & UNICODE string after conversion */
 #ifdef UNICODE
-unsigned char staticCnvBuffer[1024*sizeof(TCHAR)]; /* temp buffer, holds ASCII & UNICODE string after conversion */
 char * _T2A(unsigned short *wideStr)
 {
 	WideCharToMultiByte(CP_ACP, 0, wideStr, -1, staticCnvBuffer, sizeof(staticCnvBuffer), NULL, NULL);
 	return (char *)staticCnvBuffer;
 }
-
-unsigned short * _A2T(char *ansiStr)
+#endif
+unsigned short * _A2U(char *ansiStr)
 {
-	MultiByteToWideChar(CP_ACP, 0, ansiStr, -1, (TCHAR *)staticCnvBuffer, sizeof(staticCnvBuffer)/sizeof(TCHAR));
+	MultiByteToWideChar(CP_ACP, 0, ansiStr, -1, (unsigned short *)staticCnvBuffer, sizeof(staticCnvBuffer)/2);
 	return (unsigned short *)staticCnvBuffer;
 }
-#endif

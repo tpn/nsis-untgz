@@ -89,6 +89,12 @@ HISTORY:
 - 20100115  KJD  1.0.17
   No functional changes for standard NSIS, same as 1.0.16.
   Added support for Unicode build of NSIS (use untgz.dll in unicode directory).
+- 20100116  KJD  1.0.18
+  Initial support for hard links.  Will issue a warning if a hard link is found
+  and unable to create.  The option -h may be used to force failure if unable
+  to create a hard link.  Only works on NT5 or higher on NTFS; will fail on all
+  earlier versions of Windows, if file system is FAT or non NTFS, or if 
+  accessing NTFS file system via a share (mapped drive).
 
 KJD
-20100115
+20100116

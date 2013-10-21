@@ -34,10 +34,11 @@ InstType "Test update files extraction"
 InstType "extract all files from lzma compressed tarball"
 InstType "extract all files from bzip2 compressed tarball"
 InstType "extract all files from tarball (auto determine type)"
+InstType "extract all files creating hard links"
 
 ; Required, the sample tarball used for testing
 Section ""
-  SectionIn 1 2 3 4 5 6 7 8 9 10 11 12 13 RO
+  SectionIn 1 2 3 4 5 6 7 8 9 10 11 12 13 14 RO
   ; Set output path to the installation directory.
   SetOutPath $INSTDIR
   ; Put file there
@@ -51,6 +52,7 @@ Section ""
   File example.tlz
   File example.tar.lzma
   File example.tbz
+  File hardlinktest.tar
 SectionEnd
 
 Section "Test extract"
@@ -251,6 +253,17 @@ Section "Test extraction tarball, no type indicated"
   DetailPrint "Test bzip2 compressed tarball"
   ; same example files as others
   untgz::extract -d "$INSTDIR/tbz_file" "$INSTDIR/example.tbz"
+  DetailPrint "untgz returned ($R0)"
+SectionEnd
+
+Section "Test extraction of hardlinks from tarball"
+  SectionIn 1 14
+  DetailPrint ""
+  DetailPrint "Should always succeed, possibly with warning"
+  untgz::extract -d "$INSTDIR/hardlink" "$INSTDIR/hardlinktest.tar"
+  DetailPrint "untgz returned ($R0)"
+  DetailPrint "Should succeed on NT5+ with NTFS (not via share), else may fail"
+  untgz::extract -h -d "$INSTDIR/hardlnk2" "$INSTDIR/hardlinktest.tar"
   DetailPrint "untgz returned ($R0)"
 SectionEnd
 

@@ -25,19 +25,21 @@
 
 /*
   USAGE:
-  untgz::extract [-j] [-d basedir] [-k|-u] [-z<type>] [-x] [-f] tarball.tgz
+  untgz::extract [-j] [-d basedir] [-h] [-k|-u] [-z<type>] [-x] [-f] tarball.tgz
     extracts files from tarball.tgz
       if [option] is specified then:
          -j       ignore paths in tarball (junkpaths)
          -d       will extract relative to basedir
+		 -h       return error if fail to create hard link
          -k is    will not overwrite existing files (keep)
          -u is    will only overwrite older files (update)
          -z is    determines compression used, see below
-  untgz::extractV [-j] [-d basedir] [-k|-u] [-z<type>] [-x] [-f] tarball.tgz [-i {iList}] [-x {xList}] --
+  untgz::extractV [-j] [-d basedir] [-h] [-k|-u] [-z<type>] [-x] [-f] tarball.tgz [-i {iList}] [-x {xList}] --
     extracts files from tarball.tgz
       if [option] is specified then:
          -j       ignore paths in tarball (junkpaths)
          -d       will extract relative to basedir
+		 -h       return error if fail to create hard link
          -k is    will not overwrite existing files (keep)
          -u is    will only overwrite older files (update)
          -z is    determines compression used, see below
@@ -46,13 +48,20 @@
       the -- is required and marks the end of the file lists
   untgz::extractFile [-d basedir] [-z<type>] tarball.tgz file
     extracts just the file specified
-      path information is ignored, implictly -j is specified (may also be explicit)
+      path information is ignored, 
+	  implictly -j and -h are specified (may also be explicit)
 
   For compatibility with tar command, the following option specifiers may be
   used (must appear prior to filename argument), however, they are simply ignored.
       -x indicates action to perform is extraction (extract)
       -f archive-name indicates name of tarball (filename), note
          even when used, the filename must be last argument
+
+  If -h is used on any Windows 9x or NT prior to 2000 or if the destination
+    file system is not NTFS or accessing NTFS via a share then the creation of
+	hard links are not supported by Windows so if any hard links exist
+	in the tar file then an error will be returned; 
+	the default action is to simply print a warning if hard links can't be created.
 
   If neither -k or -u is used then all existing files will be replaced
   by corresponding file contained within archive.  
@@ -170,6 +179,7 @@ BOOL WINAPI _DllMainCRTStartup(HANDLE _hModule, DWORD ul_reason_for_call, LPVOID
 #define ERR_OPEN_FAILED _T("Error: Could not open tarball.")
 #define ERR_READ _T("Error: Failure reading from tarball.")
 #define ERR_EXTRACT _T("Error: Unable to extract file.")
+#define ERR_HARDLINK _T("Error: Unable to create hard link.")
 #define MESG_DONE _T("extraction complete.")
 
 #define ERR_NO_TARBALL _T("Error: tarball not specified.")
@@ -185,7 +195,7 @@ BOOL WINAPI _DllMainCRTStartup(HANDLE _hModule, DWORD ul_reason_for_call, LPVOID
 
 void argParse(HWND hwndParent, int string_size, TCHAR *variables, stack_t **stacktop, 
               TCHAR *cmd, TCHAR *cmdline, gzFile *tgzFile, int *compressionMethod,
-              int *junkPaths, enum KeepMode *keep, TCHAR *basePath)
+              int *junkPaths, enum KeepMode *keep, TCHAR *basePath, int *failOnHardLinks)
 {
   TCHAR buf[1024];     /* used for argument processor or other temp buffer */
   TCHAR iPath[1024];   /* initial (base) directory for extraction */
@@ -206,6 +216,7 @@ void argParse(HWND hwndParent, int string_size, TCHAR *variables, stack_t **stac
   /* initialize optional arguments to their general defaults */
   *tgzFile = 0;
   *compressionMethod = CM_AUTO;
+  *failOnHardLinks = 0; /* default to warn only                */
   *keep = OVERWRITE;
   *junkPaths = 0;       /* keep path information by default    */
   if (basePath != NULL)
@@ -236,9 +247,10 @@ void argParse(HWND hwndParent, int string_size, TCHAR *variables, stack_t **stac
       /* store so we can set as current directory after opening tarball */
       _tcscpy(iPath, buf);
     }
-    setOpt(_T("-j"), junkPaths, 1)  /* see if optional junkpaths specified */
-    setOpt(_T("-k"), keep, SKIP)    /* see if no overwrite mode given */
-    setOpt(_T("-u"), keep, UPDATE)  /* see if update mode given */
+    setOpt(_T("-j"), junkPaths, 1)       /* see if optional junkpaths specified */
+	setOpt(_T("-h"), failOnHardLinks, 1) /* request failure if unable to create hard link */
+    setOpt(_T("-k"), keep, SKIP)         /* see if no overwrite mode given */
+    setOpt(_T("-u"), keep, UPDATE)       /* see if update mode given */
     setOpt(_T("-z"),     compressionMethod, CM_GZ)    /* compression gzipped */
     setOpt(_T("-zgz"),   compressionMethod, CM_GZ)    /* compression gzipped */
     setOpt(_T("-znone"), compressionMethod, CM_NONE)  /* no compression, plain tar */
@@ -322,6 +334,7 @@ void doExtraction(enum ExtractMode mode, HWND hwndParent, int string_size, TCHAR
   TCHAR cmdline[1024];     /* just used to display to user */
   int junkPaths;          /* default to extracting with paths -- highly insecure */
   int compressionMethod;  /* gzip or other compressed tar file */
+  int failOnHardLinks;
   enum KeepMode keep;     /* overwrite mode */
   gzFile tgzFile = NULL;  /* the opened tarball (assuming argParse returns successfully) */
 
@@ -332,7 +345,7 @@ void doExtraction(enum ExtractMode mode, HWND hwndParent, int string_size, TCHAR
 
   /* do common stuff including parsing arguments up to filename to extract */
   argParse(hwndParent, string_size, variables, stacktop, 
-           funcName[mode], cmdline, &tgzFile, &compressionMethod, &junkPaths, &keep, NULL);
+           funcName[mode], cmdline, &tgzFile, &compressionMethod, &junkPaths, &keep, NULL, &failOnHardLinks);
 
   /* check if everything up to now processed ok, exit if not */
   if (_tcscmp(getuservariable(INST_R0), ERR_SUCCESS) != 0) return;
@@ -391,8 +404,8 @@ void doExtraction(enum ExtractMode mode, HWND hwndParent, int string_size, TCHAR
     _tcscat(cmdline, buf);
     _tcscat(cmdline, _T("'"));
 
-
     junkPaths = 1;
+	failOnHardLinks = 1;
 
     iCnt = 1;
     iList = (char **)malloc(sizeof(char *));
@@ -407,8 +420,15 @@ void doExtraction(enum ExtractMode mode, HWND hwndParent, int string_size, TCHAR
   PrintMessage(cmdline);
 
   /* actually perform the extraction */
-  if ((result = tgz_extract(tgzFile, compressionMethod, junkPaths, keep, iCnt, iList, xCnt, xList)) < 0)
-    setErrorStatus((result==-1)?ERR_READ:ERR_EXTRACT)
+  if ((result = tgz_extract(tgzFile, compressionMethod, junkPaths, keep, iCnt, iList, xCnt, xList, failOnHardLinks)) < 0)
+  {
+	switch (result) 
+	{
+	  case -1: setErrorStatus(ERR_READ); break;
+	  case -3: setErrorStatus(ERR_HARDLINK); break;
+	  default: setErrorStatus(ERR_EXTRACT);
+	}
+  }
   else
     PrintMessage(MESG_DONE);
 

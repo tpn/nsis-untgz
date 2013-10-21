@@ -10,7 +10,7 @@
 // Version info viewable by Explorer
 #define _VM 1
 #define _VN 0
-#define _VI 17
+#define _VI 18
 #define _VB 0
 
 #ifndef mk_str

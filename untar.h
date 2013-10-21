@@ -43,7 +43,7 @@ enum KeepMode {
 };
 
 /* actual extraction routine */
-int tgz_extract(gzFile tgzFile, int cm, int junkPaths, enum KeepMode keep, int iCnt, char *iList[], int xCnt, char *xList[]);
+int tgz_extract(gzFile tgzFile, int cm, int junkPaths, enum KeepMode keep, int iCnt, char *iList[], int xCnt, char *xList[], int failOnHardLinks);
 
 /* recursive make directory */
 /* abort if you get an ENOENT errno somewhere in the middle */

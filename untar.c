@@ -196,6 +196,28 @@ int makedir (char *newdir)
   return 1;
 }
 
+
+#ifdef UNICODE
+#define funcName "CreateHardLinkW"
+#else
+#define funcName "CreateHardLinkA"
+#endif
+typedef BOOL (*CreateHardLinkTPtr)(TCHAR * linkFileName, TCHAR * existingFileName, LPSECURITY_ATTRIBUTES lpSecurityAttributes);
+BOOL MakeHardLink(char *linkFileName, char *existingFileName)
+{
+	HMODULE hLib = LoadLibrary(_T("KERNEL32.DLL"));
+	CreateHardLinkTPtr chlT;
+	TCHAR f2[1024]; /* can't call _A2T in same call as uses a static buffer */
+	_tcscpy(f2, _A2T(existingFileName));
+	PrintMessage(_T("Hard link %s to %s"), _A2T(linkFileName), f2);
+	if ((hLib != NULL) && ((chlT = (CreateHardLinkTPtr)GetProcAddress(hLib, funcName)) != NULL))
+		return chlT(_A2T(linkFileName), f2, NULL);
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+
+
 /* NOTE: This should be modified to perform whatever steps
    deemed necessary to make embedded paths safe prior to
    creating directory or file of given [path]filename.
@@ -465,13 +487,17 @@ long readBlock(int cm, void *buffer)
  * enum KeepMode keep, indicates to perform if file exists
  * int iCnt, char *iList[], argv style list of files to extract, {0,NULL} for all
  * int xCnt, char *xList[], argv style list of files NOT to extract, {0,NULL} for none
+ * int failOnHardLinks, if nonzero then will treat failure to create a hard link same as
+ *   failure to create a regular file, 0 prints a warning if fails - note that hardlinks
+ *   will always fail on Windows prior to NT 5 (Win 2000) or later and non NTFS file systems.
  *
  * returns 0 (or positive value) on success
  * returns negative value on error, where
  *   -1 means error reading from tarball
  *   -2 means error extracting file from tarball
+ *   -3 means error creating hard link
  */
-int tgz_extract(gzFile in, int cm, int junkPaths, enum KeepMode keep, int iCnt, char *iList[], int xCnt, char *xList[])
+int tgz_extract(gzFile in, int cm, int junkPaths, enum KeepMode keep, int iCnt, char *iList[], int xCnt, char *xList[], int failOnHardLinks)
 {
   int           getheader = 1;    /* assume initial input has a tar header */
   HANDLE        outfile = INVALID_HANDLE_VALUE;
@@ -546,13 +572,14 @@ int tgz_extract(gzFile in, int cm, int junkPaths, enum KeepMode keep, int iCnt, 
       switch (buffer.header.typeflag)
       {
         case DIRTYPE:
-            dirEntry:
-            if (!junkPaths)
-            {
-               safetyStrip(fname);
-               makedir(fname);
-            }
+		  dirEntry:
+          if (!junkPaths)
+          {
+            safetyStrip(fname);
+            makedir(fname);
+          }
 	      break;
+		case LNKTYPE:   /* hard link */ 
 		case CONTTYPE:  /* contiguous file, for compatibility treat as normal */
         case REGTYPE:
         case AREGTYPE:
@@ -598,6 +625,26 @@ int tgz_extract(gzFile in, int cm, int junkPaths, enum KeepMode keep, int iCnt, 
 
 	            safetyStrip(fname);
 
+				if (buffer.header.typeflag == LNKTYPE)
+				{
+					outfile = INVALID_HANDLE_VALUE;
+					/* create a hardlink if possible, else produce just a warning unless failOnHardLinks is true */
+					if (!MakeHardLink(fname, buffer.header.linkname))
+					{
+						PrintMessage(_T("Warning: unable to create hard link %s [%d]"), _A2T(fname), GetLastError());
+						if (failOnHardLinks) 
+						{
+							cm_cleanup(cm);
+							return -3;
+						}
+					}
+					else
+					{
+						outfile = CreateFileA(fname,GENERIC_WRITE,FILE_SHARE_READ,NULL,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,NULL);
+						goto setTimeAndCloseFile;
+					}
+				} else 
+				{
 	            /* Open the file for writing mode, creating if doesn't exist and truncating if exists and overwrite mode */
 	            outfile = CreateFileA(fname,GENERIC_WRITE,FILE_SHARE_READ,NULL,(keep==OVERWRITE)?CREATE_ALWAYS:CREATE_NEW,FILE_ATTRIBUTE_NORMAL,NULL);
 
@@ -645,6 +692,7 @@ int tgz_extract(gzFile in, int cm, int junkPaths, enum KeepMode keep, int iCnt, 
 
  	            /* Inform user of current extraction action (writing, skipping file XYZ) */
 	            PrintMessage(_T("%s%s"), szMsg, _A2T(fname));
+				}
 	          }
 	      }
 	      else
@@ -657,6 +705,7 @@ int tgz_extract(gzFile in, int cm, int junkPaths, enum KeepMode keep, int iCnt, 
 	          getheader = 0;
 		  else
 	      {
+	          setTimeAndCloseFile:
 	          getheader = 1;
 	          if (outfile != INVALID_HANDLE_VALUE)
 	          {
@@ -667,7 +716,7 @@ int tgz_extract(gzFile in, int cm, int junkPaths, enum KeepMode keep, int iCnt, 
 	              CloseHandle(outfile);
 	              outfile = INVALID_HANDLE_VALUE;
 	          }
-	      }
+		  }
 
 	      break;
 		case GNUTYPE_LONGLINK:
@@ -712,19 +761,7 @@ int tgz_extract(gzFile in, int cm, int junkPaths, enum KeepMode keep, int iCnt, 
           }
       }
       remaining -= bytes;
-      if (remaining == 0)
-      {
-          getheader = 1;
-          if (outfile != INVALID_HANDLE_VALUE)
-          {
-              FILETIME ftm;
- 
-              cnv_tar2win_time(tartime, &ftm);
-              SetFileTime(outfile,&ftm,NULL,&ftm);
-              CloseHandle(outfile);
-              outfile = INVALID_HANDLE_VALUE;
-          }
-      }
+      if (remaining == 0) goto setTimeAndCloseFile;
     }
   } /* while(1) */
   
