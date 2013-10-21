@@ -27,7 +27,7 @@
 
 static unsigned int g_stringsize;
 static stack_t **g_stacktop;
-static char *g_variables;
+static TCHAR *g_variables;
 
 
 #define EXDLL_INIT()           {  \
@@ -36,37 +36,37 @@ static char *g_variables;
         g_variables=variables; }
 
 /* utility functions (not required but often useful) */
-int popstring(char *str)
+int popstring(TCHAR *str)
 {
   stack_t *th;
   if (!g_stacktop || !*g_stacktop) return 1;
   th=(*g_stacktop);
-  lstrcpy(str,th->text);
+  _tcscpy(str,th->text);
   *g_stacktop = th->next;
   GlobalFree((HGLOBAL)th);
   return 0;
 }
 
-void pushstring(char *str)
+void pushstring(TCHAR *str)
 {
   stack_t *th;
   if (!g_stacktop) return;
   th=(stack_t*)GlobalAlloc(GPTR,sizeof(stack_t)+g_stringsize);
-  lstrcpyn(th->text,str,g_stringsize);
+  _tcscpyn(th->text,str,g_stringsize);
   th->next=*g_stacktop;
   *g_stacktop=th;
 }
 
-char *getuservariable(int varnum)
+TCHAR *getuservariable(int varnum)
 {
   if (varnum < 0 || varnum >= __INST_LAST) return NULL;
   return g_variables+varnum*g_stringsize;
 }
 
-void setuservariable(int varnum, char *var)
+void setuservariable(int varnum, TCHAR *var)
 {
 	if (var != NULL && varnum >= 0 && varnum < __INST_LAST) 
-		lstrcpy(g_variables + varnum*g_stringsize, var);
+		_tcscpy(g_variables + varnum*g_stringsize, var);
 }
 
 
@@ -77,10 +77,10 @@ void setuservariable(int varnum, char *var)
 
 // each exported function should call this (unless you can guarentee its already been done)
 //pluginInit(hwndParent, string_size, variables, stacktop);
-void pluginInit(HWND hwndParent, int string_size, char *variables, stack_t **stacktop)
+void pluginInit(HWND hwndParent, int string_size, TCHAR *variables, stack_t **stacktop)
 {
   g_hwndParent=hwndParent;
-  g_hwndList = FindWindowEx(FindWindowEx(g_hwndParent,NULL,"#32770",NULL),NULL,"SysListView32",NULL);
+  g_hwndList = FindWindowEx(FindWindowEx(g_hwndParent,NULL,_T("#32770"),NULL),NULL,_T("SysListView32"),NULL);
   EXDLL_INIT();
 }
 
@@ -88,9 +88,9 @@ void pluginInit(HWND hwndParent, int string_size, char *variables, stack_t **sta
 /*
  * more printf like variant of below LogMessage from Tim (upon which it requires)
  */
-void _cdecl PrintMessage(const char *msg, ...)
+void _cdecl PrintMessage(const TCHAR *msg, ...)
 {
-  char buf[1024];
+  TCHAR buf[1024];
   va_list argptr;
   va_start(argptr, msg);
   wvsprintf (buf, msg, argptr);
@@ -105,11 +105,11 @@ void _cdecl PrintMessage(const char *msg, ...)
 // stack as popstring sees)
 // returns a pointer to the next item on the argument stack
  */
-stack_t * peekstring(char *str, stack_t *stacktop)
+stack_t * peekstring(TCHAR *str, stack_t *stacktop)
 {
   if (stacktop == NULL) stacktop = *g_stacktop;
   if (!stacktop) return NULL;
-  lstrcpy(str,stacktop->text);
+  _tcscpy(str,stacktop->text);
   return stacktop->next;
 }
 
@@ -118,11 +118,11 @@ stack_t * peekstring(char *str, stack_t *stacktop)
 // next argument (-<arg>) or end of stack.
 // returns 0 on success, nonzero on error
  */
-int getArgList(int *argCnt, char **argList[], char *cmdline)
+int getArgList(int *argCnt, char **argList[], TCHAR *cmdline)
 {
   int cnt;
   char **list;
-  char buf[1024];
+  TCHAR buf[1024];
 
   register int i;
 
@@ -132,12 +132,12 @@ int getArgList(int *argCnt, char **argList[], char *cmdline)
   /* some sanity checking */
   if (argList == NULL) 
   {
-    PrintMessage(__FILE__ "::getArgList() called with argList == NULL");
+    PrintMessage(_T(__FILE__) _T("::getArgList() called with argList == NULL"));
     return -1;
   }
   if (argCnt == NULL) 
   {
-    PrintMessage(__FILE__ "::getArgList() called with argCnt == NULL");
+    PrintMessage(_T(__FILE__) _T("::getArgList() called with argCnt == NULL"));
     return -2;
   }
 
@@ -146,20 +146,20 @@ int getArgList(int *argCnt, char **argList[], char *cmdline)
   list = NULL;
   *argList = NULL;
 
-  *buf = '\0';
+  *buf = (TCHAR)'\0';
   // loop through until end of stack or next option found
-  while ( stkptr && (*buf != '-') )
+  while ( stkptr && (*buf != (TCHAR)'-') )
   {
     stkptr = peekstring(buf, stkptr);
     cnt++;
   }
-  if (*buf == '-') cnt--;
+  if (*buf == (TCHAR)'-') cnt--;
 
   if (cnt > 0)
   {
     if ((list = (char **)malloc(cnt * sizeof(char *))) == NULL) 
 	{
-		PrintMessage("WARNING: " __FILE__ "::getArgList() Unable to allocate memory required!");
+		PrintMessage(_T("WARNING: ") _T(__FILE__) _T("::getArgList() Unable to allocate memory required!"));
 		return 1;
 	}
     for (i = 0; i < cnt; i++)
@@ -171,14 +171,14 @@ int getArgList(int *argCnt, char **argList[], char *cmdline)
 		for (j = 0; j < i; j++)
 			if (list[j] != NULL) free(list[j]);
 		free(list);
-        PrintMessage("WARNING: NSIS stack in undefined state!");
+        PrintMessage(_T("WARNING: NSIS stack in undefined state!"));
         return 2;
       }
-	  strcat(cmdline, "'");
-      strcat(cmdline, buf);
-      strcat(cmdline, "' ");
+	  _tcscat(cmdline, _T("'"));
+      _tcscat(cmdline, buf);
+      _tcscat(cmdline, _T("' "));
 
-      list[i] = (char *)malloc(strlen(buf)+1);
+      list[i] = (char *)malloc((_tcslen(buf)+1)*sizeof(char));
 	  if (list[i] == NULL)
       {
         /* free all the memory we have allocated */
@@ -189,15 +189,15 @@ int getArgList(int *argCnt, char **argList[], char *cmdline)
         /* finish popping the stack so its in a known state */
 		for ( ; i < cnt; i++)
           popstring(buf);
-		PrintMessage("WARNING: " __FILE__ "::getArgList() Unable to allocate memory required!");
+		PrintMessage(_T("WARNING: ") _T(__FILE__) _T("::getArgList() Unable to allocate memory required!"));
         return 3;
       }
-      strcpy(list[i], buf);
+      strcpy(list[i], _T2A(buf));
     }
   }
   else if (cnt < 0)
   {
-    PrintMessage(__FILE__ "::getArgList() Internal Error: cnt < 0");
+    PrintMessage(_T(__FILE__) _T("::getArgList() Internal Error: cnt < 0"));
     return 333;
   }
 
@@ -232,7 +232,7 @@ int getArgList(int *argCnt, char **argList[], char *cmdline)
   3. This notice may not be removed or altered from any source distribution.
 
 */
-int SetStatus(const char *pStr)
+int SetStatus(const TCHAR *pStr)
 {
 	HWND hwndCtrl=GetDlgItem(g_hwndList, 1006);
 	if (hwndCtrl)
@@ -246,7 +246,7 @@ int SetStatus(const char *pStr)
 /*
  * Displays a message in NSIS details window, roughly the same as NSIS' DetailPrint
  */
-void DetailPrint(const char *pStr)  /* LogMessage() */
+void DetailPrint(const TCHAR *pStr)  /* LogMessage() */
 {
 	if (!g_hwndList) return;
 	if (!lstrlen(pStr)) return;
@@ -255,7 +255,7 @@ void DetailPrint(const char *pStr)  /* LogMessage() */
 		LVITEM item={0};
 		int nItemCount=SendMessage(g_hwndList, LVM_GETITEMCOUNT, 0, 0);
 		item.mask=LVIF_TEXT;
-		item.pszText=(char *)pStr;
+		item.pszText=(TCHAR *)pStr;
 		item.cchTextMax=0;  /* =6 */
 		item.iItem=nItemCount;
 		/* SendMessage(g_hwndList, LVM_INSERTITEM, 0, (LPARAM)&item); */

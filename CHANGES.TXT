@@ -83,6 +83,12 @@ HISTORY:
 - 20071107  KJD  1.0.15
   Automatically determine compression type if not explicity indicated.
   Split README.TXT into multiple files to ease reading.
+- 20091013  KJD  1.0.16
+  Update untar.c to prepend prefix to name field if not empty for names > 100 chars.
+  Released as an update to 1.0.15, but compiled with MSVC6.
+- 20100115  KJD  1.0.17
+  No functional changes for standard NSIS, same as 1.0.16.
+  Added support for Unicode build of NSIS (use untgz.dll in unicode directory).
 
 KJD
-20071110
+20100115

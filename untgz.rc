@@ -10,7 +10,7 @@
 // Version info viewable by Explorer
 #define _VM 1
 #define _VN 0
-#define _VI 16
+#define _VI 17
 #define _VB 0
 
 #ifndef mk_str
@@ -78,7 +78,11 @@ BEGIN
             VALUE "PrivateBuild", "\0"
             VALUE "ProductName", "untgz\0"
             VALUE "ProductVersion", _VS
-            VALUE "SpecialBuild", "KJD\0"
+#ifdef UNICODE
+            VALUE "SpecialBuild", "UNICODE\0"
+#else
+            VALUE "SpecialBuild", "ANSI\0"
+#endif
         END
     END
     BLOCK "VarFileInfo"

@@ -57,8 +57,8 @@ void * realloc(void *ptr, size_t size)
 
 char * strdup(const char *str)
 {
-  char *t = (char *)malloc(lstrlen(str)+1);
-  if (t != NULL) lstrcpy(t, str);
+  char *t = (char *)malloc(strlen(str)+1);
+  if (t != NULL) strcpy(t, str);
   return t;
 }
 
@@ -213,7 +213,7 @@ FILE * fopen(const char *filename, const char *mode)
   f->eof = 0;
   f->err = 0;
 
-  f->handle = CreateFile(filename,dwAccess,FILE_SHARE_READ,NULL,dwCreate,FILE_ATTRIBUTE_NORMAL,NULL);
+  f->handle = CreateFileA(filename,dwAccess,FILE_SHARE_READ,NULL,dwCreate,FILE_ATTRIBUTE_NORMAL,NULL);
   if (f->handle == INVALID_HANDLE_VALUE)
   {
     switch (GetLastError())
@@ -269,7 +269,7 @@ int fprintf(FILE *f, const char *format, ...)
   char buf[1024];
   va_list argptr;
   va_start(argptr, format);
-  wvsprintf (buf, format, argptr);
+  wvsprintfA (buf, format, argptr);
   va_end(argptr);
   return fwrite(buf,1,strlen(buf)+1,f);
 }
@@ -279,7 +279,7 @@ int sprintf(char *buf, const char *format, ...)
   int retval;
   va_list argptr;
   va_start(argptr, format);
-  retval = wvsprintf (buf, format, argptr);
+  retval = wvsprintfA (buf, format, argptr);
   va_end(argptr);
   return retval;
 }
@@ -328,3 +328,18 @@ FILE *_fdopen(int handle, const char *mode)
   return NULL;
 }
 
+
+#ifdef UNICODE
+unsigned char staticCnvBuffer[1024*sizeof(TCHAR)]; /* temp buffer, holds ASCII & UNICODE string after conversion */
+char * _T2A(unsigned short *wideStr)
+{
+	WideCharToMultiByte(CP_ACP, 0, wideStr, -1, staticCnvBuffer, sizeof(staticCnvBuffer), NULL, NULL);
+	return (char *)staticCnvBuffer;
+}
+
+unsigned short * _A2T(char *ansiStr)
+{
+	MultiByteToWideChar(CP_ACP, 0, ansiStr, -1, (TCHAR *)staticCnvBuffer, sizeof(staticCnvBuffer)/sizeof(TCHAR));
+	return (unsigned short *)staticCnvBuffer;
+}
+#endif

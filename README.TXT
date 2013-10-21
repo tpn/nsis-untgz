@@ -16,8 +16,10 @@ KJD <jeremyd@fdos.org>
   tar spec is not handled.  Please verify the tarfiles you
   will use work with it before deploying; the pluginTester
   program will allow one to do this easily without the need
-  to write and compile a NSIS script.  Only supports filenames
-  up to 100 characters (standard tar short names).
+  to write and compile a NSIS script.
+  
+  Also supports UNICODE variant of NSIS (use untgz.dll in unicode directory).
+  Note: internally still only ASCII.
 
 
   This software based on NSIS exDLL (example plugin) and compression
@@ -88,13 +90,12 @@ KJD <jeremyd@fdos.org>
 
 
 TODO:
-- determine most compatible use of prefix (when and if to use, and how much)
-  to support file names longer than 100 characters. [DOES ANYBODY CARE?]
-- add support for gnu/star extension for Sparse files. [DOES ANYBODY CARE?]
+- improve support for file names longer than 100 characters
+- add support for gnu/star extension for Sparse files. [SLOWLY IN PROGRESS]
 
 
 NOTES:  (see CHANGES.TXT for complete CHANGELOG)
-- presently tested with NSIS v2
+- presently tested with NSIS v2 (standard 2.46 and Unicode 2.45)
 - does not require a c runtime library (important if say you compile with MS VC 7 and don't
   want to require its runtime present during install [or Windows 95 and compiled with MS VC 5 or 6])
 - to create a .tar.lzma (or .tlz) file, create a standard tarball (uncompressed) and then
@@ -103,4 +104,4 @@ NOTES:  (see CHANGES.TXT for complete CHANGELOG)
   automatically based on file contents and file extension.
 
 KJD
-20071110
+20100115

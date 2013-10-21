@@ -99,7 +99,7 @@ int getFileType(const char *fname);
 
 /* !!!USER SUPPLIED!!! */
 /* wrap around whatever you want to send error messages to user, c function */
-void PrintMessage(const char *msg, ...);
+void PrintMessage(const TCHAR *msg, ...);
 
 
 #ifdef __cplusplus

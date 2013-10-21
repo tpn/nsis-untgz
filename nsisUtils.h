@@ -21,6 +21,13 @@
 #define NSIS_UTILS_H
 
 
+#ifdef UNICODE
+#ifndef _UNICODE
+#define _UNICODE
+#endif
+#endif
+
+
 #include "miniclib.h"   /* mini stdc replacement & includes windows.h */
 
 
@@ -35,7 +42,7 @@ extern "C" {
 /* actual stack item */
 typedef struct _stack_t {
   struct _stack_t *next;
-  char text[1]; // this should be the length of string_size
+  TCHAR text[1]; // this should be the length of string_size
 } stack_t;
 
 /* global variables */
@@ -44,7 +51,7 @@ extern HWND g_hwndList;
 
 extern unsigned int g_stringsize;
 extern stack_t **g_stacktop;
-extern char *g_variables;
+extern TCHAR *g_variables;
 
 
 /* For page showing plug-ins */
@@ -88,7 +95,7 @@ __INST_LAST
  * each exported function should call this (unless you can guarentee its already been done)
  * pluginInit(hwndParent, string_size, variables, stacktop);
  */
-void pluginInit(HWND hwndParent, int string_size, char *variables, stack_t **stacktop);
+void pluginInit(HWND hwndParent, int string_size, TCHAR *variables, stack_t **stacktop);
 
 /* 
  * retrieves next item from stack
@@ -96,13 +103,13 @@ void pluginInit(HWND hwndParent, int string_size, char *variables, stack_t **sta
  * as past that you are poping arguments pushed on the
  * stack for some other purposes (i.e. to save some value for restoration)
  */
-int popstring(char *str); // 0 on success, 1 on empty stack
+int popstring(TCHAR *str); // 0 on success, 1 on empty stack
 
 /* 
  * pushes a value onto the stack for the NSIS script to retrieve
  * or for you to pop off later in your plugin
  */
-void pushstring(char *str);
+void pushstring(TCHAR *str);
 
 /*
  * cheat a little with argument stack
@@ -111,40 +118,40 @@ void pushstring(char *str);
  * stack as popstring sees)
  * returns a pointer to the next item on the argument stack
  */
-stack_t * peekstring(char *str, stack_t *stacktop);
+stack_t * peekstring(TCHAR *str, stack_t *stacktop);
 
 /*
  * gets a variable's value (a string), $R0-$R9, $0-$9, ...
  */
-char *getuservariable(int varnum);
+TCHAR *getuservariable(int varnum);
 
 /*
  * sets a variable's value (a string), $R0-$R9, $0-$9, ...
  */
-void setuservariable(int varnum, char *var);
+void setuservariable(int varnum, TCHAR *var);
 
 /*
  * Displays a message in NSIS details window (LogMessage)
  * roughly the same as NSIS' DetailPrint
  */
-void DetailPrint(const char *pStr);
+void DetailPrint(const TCHAR *pStr);
 
 /*
  * more printf like variant of below LogMessage from Tim (upon which it requires)
  */
-void _cdecl PrintMessage(const char *msg, ...);
+void _cdecl PrintMessage(const TCHAR *msg, ...);
 
 /*
  * Sets the status text
  */
-int SetStatus(const char *pStr);
+int SetStatus(const TCHAR *pStr);
 
 /*
  * fill in a char* list[] and its count with arguments up to
  * next argument (-<arg>) or end of stack.
  * returns 0 on success, nonzero on error
  */
-int getArgList(int *argCnt, char **argList[], char *cmdline);
+int getArgList(int *argCnt, char **argList[], TCHAR *cmdline);
 
 
 #ifdef __cplusplus

@@ -27,6 +27,33 @@ extern int errno;
 #endif
 #endif
 
+#ifdef UNICODE
+#ifndef _T
+#define __T(x)   L ## x
+#define _T(x)    __T(x)
+#define _TEXT(x) __T(x)
+#endif
+char * _T2A(unsigned short *str);
+unsigned short * _A2T(char *str);
+#define _tcscat wcscat
+#define _tcscpy wcscpy
+#define _tcscpyn wcsncpy
+#define _tcscmp wcscmp
+#define _tcslen wcslen
+#else
+#ifndef _T
+#define _T(x) x
+#define _TEXT(x) x
+#endif
+#define _T2A(x) (x)
+#define _A2T(x) (x)
+#define _tcscat strcat
+#define _tcscpy strcpy
+#define _tcscpyn strncpy
+#define _tcscmp strcmp
+#define _tcslen strlen
+#endif
+
 void * malloc(size_t size);
 void * calloc(size_t num, size_t size);
 void free(void *ptr);
@@ -34,11 +61,21 @@ void * realloc(void *ptr, size_t size);
 char * strdup(const char *str);
 char * strrchr(const char *str, int c);
 
-#define strlen lstrlen
-#define strcpy lstrcpy
-#define strcat lstrcat
-#define strcmp lstrcmp
-#define strcmpi lstrcmpi
+#define strlen lstrlenA
+#define strcpy lstrcpyA
+#define strncpy lstrcpynA
+#define strcat lstrcatA
+#define strcmp lstrcmpA
+#define strcmpi lstrcmpiA
+
+#define wcslen lstrlenW
+#define wcscpy lstrcpyW
+#define wcsncpy lstrcpynW
+#define wcscat lstrcatW
+#define wcscmp lstrcmpW
+#define wcscmpi lstrcmpiW
+
+
 
 // MSVC [6&7] Professional+ these are intrinsic
 // and this causes a duplicate function error,

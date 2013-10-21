@@ -97,10 +97,10 @@ SectionEnd
 Section "Test extractFile"
   SectionIn 1 5
   ; untgz::extractFile [-d basedir] tarball.tgz file
-  untgz::extractFile -d "$INSTDIR/singlefile" "$INSTDIR/example.tgz" "another doc.txt"
+  untgz::extractFile -d "$INSTDIR\singlefile" "$INSTDIR\example.tgz" "another doc.txt"
   DetailPrint "untgz returned ($R0)"
 
-  untgz::extractFile -d "$INSTDIR/readonly" "$INSTDIR/example.tgz" "my doc.txt"
+  untgz::extractFile -d "$INSTDIR/forwardSlash" "$INSTDIR/example.tgz" "another doc.txt"
   DetailPrint "untgz returned ($R0)"
 SectionEnd
 
@@ -144,7 +144,7 @@ Section "Test readonly/inuse files extraction"
   DetailPrint ""
   DetailPrint "Test readonly/inuse files extraction"
 
-  ; Be sure paths to FileOpen and SetFileAttributes ONLY use \
+  ; Be sure paths to FileOpen and SetFileAttributes ONLY use \ character
 
   DetailPrint "this should succeed"
   untgz::extractFile -d "$INSTDIR/readonly" "$INSTDIR/example.tgz" "another doc.txt"

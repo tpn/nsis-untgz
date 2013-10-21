@@ -43,5 +43,8 @@ and use included mini-c-library and file I/O through zlib (pass through mode).
 Currently based on BZip2 version 1.0.3, see bz2103.diff for exact differences,
 other than files not included; bz2.h is derived from bzlib.h.
 
+Note: To build version for UNICODE enabled NSIS add a define to project for both
+compiler and resource compiler for UNICODE (-d UNICODE).
+
 KJD
-20071110
+20071110, minor update 20100115

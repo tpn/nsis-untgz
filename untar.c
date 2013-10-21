@@ -165,7 +165,7 @@ int makedir (char *newdir)
   if (buffer[len-1] == '/') {
     buffer[len-1] = '\0';
   }
-  if (CreateDirectory(buffer, NULL) != 0)
+  if (CreateDirectoryA(buffer, NULL) != 0)
     {
       free(buffer);
       return 1;
@@ -181,10 +181,10 @@ int makedir (char *newdir)
       hold = *p;
       *p = 0;
       //if ((mkdir(buffer, 0775) == -1) && (errno == ENOENT /* != EEXIST */))
-      if (!CreateDirectory(buffer, NULL) && !((GetLastError()==ERROR_FILE_EXISTS) || (GetLastError()==ERROR_ALREADY_EXISTS)) )
+      if (!CreateDirectoryA(buffer, NULL) && !((GetLastError()==ERROR_FILE_EXISTS) || (GetLastError()==ERROR_ALREADY_EXISTS)) )
       {
         // fprintf(stderr,"Unable to create directory %s\n", buffer);
-        PrintMessage("Unable to create directory %s\n", buffer);
+        PrintMessage(_T("Unable to create directory %s\n"), _A2T(buffer));
         free(buffer);
 	  return 0;
       }
@@ -233,10 +233,10 @@ void getFullName(union tar_buffer *buffer, char *fname)
 	if (*(buffer->header.prefix) && (*(buffer->header.prefix) != ' '))
 	{
 		/* copy over prefix */
-		lstrcpyn(fname,buffer->header.prefix, sizeof(buffer->header.prefix));
+		strncpy(fname,buffer->header.prefix, sizeof(buffer->header.prefix));
 		fname[sizeof(buffer->header.prefix)-1] = '\0';
 		/* ensure ends in dir separator, implied after if full prefix size used */
-		len = lstrlen(fname)-1; /* assumed by test above at least 1 character */
+		len = strlen(fname)-1; /* assumed by test above at least 1 character */
 		if ((fname[len]!='/') && (fname[len]!='\\'))
 		{
 			len++;
@@ -246,7 +246,7 @@ void getFullName(union tar_buffer *buffer, char *fname)
 	}
 
 	/* copy over filename portion */
-	lstrcpyn(fname+len,buffer->header.name, sizeof(buffer->header.name));
+	strncpy(fname+len,buffer->header.name, sizeof(buffer->header.name));
 	fname[len+sizeof(buffer->header.name)-1] = '\0'; /* ensure terminated */
 }
 
@@ -357,7 +357,7 @@ LZMAFile *lzmaFile;
 #include "bz2/bz2.h"
 static int bzerror;
 BZFILE *bzfile;
-void bz_internal_error ( int errcode ) { PrintMessage("BZ2: internal error decompressing!"); }
+void bz_internal_error ( int errcode ) { PrintMessage(_T("BZ2: internal error decompressing!")); }
 #endif
 gzFile infile;
 
@@ -408,7 +408,7 @@ void cm_cleanup(int cm)
   /* close the input stream */
   if (gzclose(infile) != Z_OK)
   {
-    PrintMessage("failed gzclose");
+    PrintMessage(_T("failed gzclose"));
     /* return -1; */
   }
 }
@@ -439,7 +439,7 @@ long readBlock(int cm, void *buffer)
   /* check for read errors and abort */
   if (len < 0)
   {
-    PrintMessage("gzread: error decompressing");
+    PrintMessage(_T("gzread: error decompressing"));
     cm_cleanup(cm);
     return -1;
   }
@@ -449,7 +449,7 @@ long readBlock(int cm, void *buffer)
    */
   if (len != BLOCKSIZE)
   {
-    PrintMessage("gzread: incomplete block read");
+    PrintMessage(_T("gzread: incomplete block read"));
     cm_cleanup(cm);
     return -1;
   }
@@ -484,7 +484,7 @@ int tgz_extract(gzFile in, int cm, int junkPaths, enum KeepMode keep, int iCnt, 
   /* do any prep work for extracting from compressed TAR file */
   if (cm_init(in, cm))
   {
-    PrintMessage("tgz_extract: unable to initialize decompression method.");
+    PrintMessage(_T("tgz_extract: unable to initialize decompression method."));
     cm_cleanup(cm);
     return -1;
   }
@@ -508,7 +508,7 @@ int tgz_extract(gzFile in, int cm, int junkPaths, enum KeepMode keep, int iCnt, 
       /* compute and check header checksum, support signed or unsigned */
       if (!valid_checksum(&(buffer.header)))
       {
-        PrintMessage("tgz_extract: bad header checksum");
+        PrintMessage(_T("tgz_extract: bad header checksum"));
         cm_cleanup(cm);
         return -1;
       }
@@ -532,12 +532,12 @@ int tgz_extract(gzFile in, int cm, int junkPaths, enum KeepMode keep, int iCnt, 
         buffer.header.name[SHORTNAMESIZE-1] = '\0';
         if (lstrcmp(fs, buffer.header.name) != 0)
         {
-          PrintMessage("tgz_extract: mismatched long filename");
+          PrintMessage(_T("tgz_extract: mismatched long filename"));
           cm_cleanup(cm);
           return -1;
         }
 #else
-		PrintMessage("tgz_extract: using GNU long filename [%s]", fname);
+		PrintMessage(_T("tgz_extract: using GNU long filename [%s]"), _A2T(fname));
 #endif
       }
       /* LogMessage("buffer.header.name is:");  LogMessage(fname); */
@@ -557,7 +557,7 @@ int tgz_extract(gzFile in, int cm, int junkPaths, enum KeepMode keep, int iCnt, 
         case REGTYPE:
         case AREGTYPE:
 	      /* Note: a file ending with a / may actually be a BSD tar directory entry */
-	      if (fname[lstrlen(fname)-1] == '/')
+	      if (fname[strlen(fname)-1] == '/')
 	        goto dirEntry;
 
 	      remaining = getoct(buffer.header.size,12);
@@ -591,15 +591,15 @@ int tgz_extract(gzFile in, int cm, int junkPaths, enum KeepMode keep, int iCnt, 
 	          if (*fname) /* if after stripping path a fname still exists */
 	          {
 	            /* Attempt to open the output file and report action taken to user */
-	            const char szERRMsg[] = "Error: Could not create file ",
-	                       szSUCMsg[] = "Writing ",
-	                       szSKPMsg[] = "Skipping ";
-	            const char * szMsg = szSUCMsg;
+	            const TCHAR szERRMsg[] = _T("Error: Could not create file "),
+	                        szSUCMsg[] = _T("Writing "),
+	                        szSKPMsg[] = _T("Skipping ");
+	            const TCHAR * szMsg = szSUCMsg;
 
 	            safetyStrip(fname);
 
 	            /* Open the file for writing mode, creating if doesn't exist and truncating if exists and overwrite mode */
-	            outfile = CreateFile(fname,GENERIC_WRITE,FILE_SHARE_READ,NULL,(keep==OVERWRITE)?CREATE_ALWAYS:CREATE_NEW,FILE_ATTRIBUTE_NORMAL,NULL);
+	            outfile = CreateFileA(fname,GENERIC_WRITE,FILE_SHARE_READ,NULL,(keep==OVERWRITE)?CREATE_ALWAYS:CREATE_NEW,FILE_ATTRIBUTE_NORMAL,NULL);
 
 	            /* failed to open file, either valid error (like open) or it already exists and in a keep mode */
 	            if (outfile == INVALID_HANDLE_VALUE)
@@ -615,10 +615,10 @@ int tgz_extract(gzFile in, int cm, int junkPaths, enum KeepMode keep, int iCnt, 
 	                {
 	                  FILETIME ftm_a;
                       HANDLE h;
-                      WIN32_FIND_DATA ffData;
+                      WIN32_FIND_DATAA ffData;
  
 	                  cnv_tar2win_time(tartime, &ftm_a); /* archive file time */
-	                  h = FindFirstFile(fname, &ffData); /* existing file time */
+	                  h = FindFirstFileA(fname, &ffData); /* existing file time */
 
                       if (h!=INVALID_HANDLE_VALUE)
                         FindClose(h);  /* cleanup search handle */
@@ -628,7 +628,7 @@ int tgz_extract(gzFile in, int cm, int junkPaths, enum KeepMode keep, int iCnt, 
                       /* compare date+times, is one in tarball newer? */
                       if (*((LONGLONG *)&ftm_a) > *((LONGLONG *)&(ffData.ftLastWriteTime)))
                       {
-                        outfile = CreateFile(fname,GENERIC_WRITE,FILE_SHARE_READ,NULL,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,NULL);
+                        outfile = CreateFileA(fname,GENERIC_WRITE,FILE_SHARE_READ,NULL,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,NULL);
                         if (outfile == INVALID_HANDLE_VALUE) goto ERR_OPENING;
                         szMsg = szSUCMsg;
                       }
@@ -637,14 +637,14 @@ int tgz_extract(gzFile in, int cm, int junkPaths, enum KeepMode keep, int iCnt, 
 	              else /* in overwrite mode or failed for some other error than exists */
 	              {
                     ERR_OPENING:
-	                PrintMessage("%s%s [%d]", szERRMsg, fname, GetLastError());
+	                PrintMessage(_T("%s%s [%d]"), szERRMsg, _A2T(fname), GetLastError());
 	                cm_cleanup(cm);
 	                return -2;
 	              }
 	            }
 
  	            /* Inform user of current extraction action (writing, skipping file XYZ) */
-	            PrintMessage("%s%s", szMsg, fname);
+	            PrintMessage(_T("%s%s"), szMsg, _A2T(fname));
 	          }
 	      }
 	      else
@@ -678,7 +678,7 @@ int tgz_extract(gzFile in, int cm, int junkPaths, enum KeepMode keep, int iCnt, 
 	      fname[BLOCKSIZE-1] = '\0';
 	      if ((remaining >= BLOCKSIZE) || ((unsigned)strlen(fname) > remaining))
 	      {
-	          PrintMessage("tgz_extract: invalid long name");
+	          PrintMessage(_T("tgz_extract: invalid long name"));
 	          cm_cleanup(cm);
 	          return -1;
 	      }
@@ -703,9 +703,9 @@ int tgz_extract(gzFile in, int cm, int junkPaths, enum KeepMode keep, int iCnt, 
           WriteFile(outfile,buffer.buffer,bytes,&bwritten,NULL);
 		  if (bwritten != bytes)
           {
-			  PrintMessage("Error: write failed for %s", fname);
+			  PrintMessage(_T("Error: write failed for %s"), _A2T(fname));
               CloseHandle(outfile);
-              DeleteFile(fname);
+              DeleteFileA(fname);
 
               cm_cleanup(cm);
               return -2;

@@ -43,7 +43,7 @@ RSC=rc.exe
 # PROP Ignore_Export_Lib 1
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MT /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "UNTGZ_EXPORTS" /YX /FD /c
-# ADD CPP /nologo /MD /W3 /O1 /Ob2 /I "./zlib ..\..\..\source\zlib" /I "./zlib" /I "../../source/zlib" /D "NDEBUG" /D "_WIN32" /D "EXEHEAD" /D "WIN32" /D "_WINDOWS" /D "NSIS_COMPRESS_USE_ZLIB" /FAcs /Gs32000 /FD /c
+# ADD CPP /nologo /MD /W3 /O1 /Ob2 /I "./zlib ..\..\..\source\zlib" /I "./zlib" /I "../../source/zlib" /D "NDEBUG" /D "_WIN32" /D "EXEHEAD" /D "WIN32" /D "_WINDOWS" /D "NSIS_COMPRESS_USE_ZLIB" /FAcs /FR /Gs32000 /FD /c
 # ADD BASE MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD MTL /nologo /D "NDEBUG" /win32
 # SUBTRACT MTL /mktyplib203
@@ -54,7 +54,7 @@ BSC32=bscmake.exe
 # SUBTRACT BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /machine:I386
-# ADD LINK32 kernel32.lib user32.lib gdi32.lib comdlg32.lib advapi32.lib /nologo /dll /pdb:none /map /machine:I386 /nodefaultlib /out:"../../Plugins/untgz.dll" /opt:nowin98 /ws:aggressive
+# ADD LINK32 kernel32.lib user32.lib gdi32.lib comdlg32.lib advapi32.lib /nologo /dll /pdb:none /map /machine:I386 /nodefaultlib /out:"untgz.dll" /opt:nowin98 /ws:aggressive
 
 !ELSEIF  "$(CFG)" == "untgz - Win32 Debug"
 
@@ -115,6 +115,10 @@ SOURCE=.\bz2\crctable.c
 # Begin Source File
 
 SOURCE=.\bz2\decompress.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\filetype.cpp
 # End Source File
 # Begin Source File
 
@@ -210,6 +214,10 @@ SOURCE=.\lzma\LzmaDecode.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\lzma\LzmaTypes.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\miniclib.h
 # End Source File
 # Begin Source File
@@ -241,5 +249,9 @@ SOURCE=.\zlib\zutil.h
 SOURCE=.\untgz.rc
 # End Source File
 # End Group
+# Begin Source File
+
+SOURCE=.\LLMUL.OBJ
+# End Source File
 # End Target
 # End Project

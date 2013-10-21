@@ -81,8 +81,8 @@
 
 
 // plugin specific headers
-#include "untar.h"
 #include "nsisUtils.h"
+#include "untar.h"
 
 // standard headers
 #include <stdarg.h>  /* va_list, va_start, va_end */
@@ -91,9 +91,9 @@
 /* The exported API without name mangling */
 extern "C" {
 
-__declspec(dllexport) void extract(HWND hwndParent, int string_size, char *variables, stack_t **stacktop);
-__declspec(dllexport) void extractV(HWND hwndParent, int string_size, char *variables, stack_t **stacktop);
-__declspec(dllexport) void extractFile(HWND hwndParent, int string_size, char *variables, stack_t **stacktop);
+__declspec(dllexport) void extract(HWND hwndParent, int string_size, TCHAR *variables, stack_t **stacktop);
+__declspec(dllexport) void extractV(HWND hwndParent, int string_size, TCHAR *variables, stack_t **stacktop);
+__declspec(dllexport) void extractFile(HWND hwndParent, int string_size, TCHAR *variables, stack_t **stacktop);
 
 
 /* DLL entry function, needs to be __stdcall, but must be extern "C" for proper decoration (name mangling) */
@@ -132,7 +132,7 @@ BOOL WINAPI _DllMainCRTStartup(HANDLE _hModule, DWORD ul_reason_for_call, LPVOID
 #define exitWithError(status, optSvar)	\
 {	\
     PrintMessage(cmdline);	\
-    PrintMessage("%s %s", status, optSvar);	\
+    PrintMessage(_T("%s %s"), status, optSvar);	\
     setExitStatus(status);	\
     return;	\
 }
@@ -144,59 +144,59 @@ BOOL WINAPI _DllMainCRTStartup(HANDLE _hModule, DWORD ul_reason_for_call, LPVOID
 // be a description of the error regarding the
 // expected argument that is missing) ...
 // poparg also closes tgzFile, else same as poparg1
-#define poparg1(buf, msg) { if (popstring(buf)) exitWithError(ERR_NO_TARBALL, ""); }
+#define poparg1(buf, msg) { if (popstring(buf)) exitWithError(ERR_NO_TARBALL, _T("")); }
 #define poparg(buf, msg) \
 { \
   if (popstring(buf)) \
   { \
     if (tgzFile) gzclose(tgzFile); \
-    exitWithError(msg, "") \
+    exitWithError(msg, _T("")) \
   } \
 }
 
 
 // macro that compares argument, if match prints to log and sets variable to value
 #define setOpt(arg, var, value) \
-  else if (strcmp(buf, arg) == 0) \
+  else if (_tcscmp(buf, arg) == 0) \
   { \
-    strcat(cmdline, buf); \
-    strcat(cmdline, " "); \
+    _tcscat(cmdline, buf); \
+    _tcscat(cmdline, _T(" ")); \
     *var = value ; \
   }
 
 
 // error messages
-#define ERR_SUCCESS "success"  /* DO NOT CHANGE */
-#define ERR_OPEN_FAILED "Error: Could not open tarball."
-#define ERR_READ "Error: Failure reading from tarball."
-#define ERR_EXTRACT "Error: Unable to extract file."
-#define MESG_DONE "extraction complete."
+#define ERR_SUCCESS _T("success")  /* DO NOT CHANGE */
+#define ERR_OPEN_FAILED _T("Error: Could not open tarball.")
+#define ERR_READ _T("Error: Failure reading from tarball.")
+#define ERR_EXTRACT _T("Error: Unable to extract file.")
+#define MESG_DONE _T("extraction complete.")
 
-#define ERR_NO_TARBALL "Error: tarball not specified."
-#define ERR_DOPT_MISSING_DIR "Error: -d option given but base directory not specified!"
-#define ERR_BAD_INCLUDE_LIST "Error: -i unable to obtain include file list!"
-#define ERR_BAD_EXCLUDE_LIST "Error: -x unable to obtain exclude file list!"
-#define ERR_MISSING_INCLUDE_EXCLUDE_TERMINATOR "Error: -- include/exclude end marker is missing!"
-#define ERR_MISSING_FILE "Error: file to extract not specified!"
-#define ERR_UNSUPPORTED_COMPRESSION "Error: Unsupported compression format."
-#define ERR_UNKNOWN_OPTION "Error: unknown option specified!"
-#define WARN_INVALID_OPTION "WARNING: invalid option (%s), ignoring!"
+#define ERR_NO_TARBALL _T("Error: tarball not specified.")
+#define ERR_DOPT_MISSING_DIR _T("Error: -d option given but base directory not specified!")
+#define ERR_BAD_INCLUDE_LIST _T("Error: -i unable to obtain include file list!")
+#define ERR_BAD_EXCLUDE_LIST _T("Error: -x unable to obtain exclude file list!")
+#define ERR_MISSING_INCLUDE_EXCLUDE_TERMINATOR _T("Error: -- include/exclude end marker is missing!")
+#define ERR_MISSING_FILE _T("Error: file to extract not specified!")
+#define ERR_UNSUPPORTED_COMPRESSION _T("Error: Unsupported compression format.")
+#define ERR_UNKNOWN_OPTION _T("Error: unknown option specified!")
+#define WARN_INVALID_OPTION _T("WARNING: invalid option (%s), ignoring!")
 
 
-void argParse(HWND hwndParent, int string_size, char *variables, stack_t **stacktop, 
-              char *cmd, char *cmdline, gzFile *tgzFile, int *compressionMethod,
-              int *junkPaths, enum KeepMode *keep, char *basePath)
+void argParse(HWND hwndParent, int string_size, TCHAR *variables, stack_t **stacktop, 
+              TCHAR *cmd, TCHAR *cmdline, gzFile *tgzFile, int *compressionMethod,
+              int *junkPaths, enum KeepMode *keep, TCHAR *basePath)
 {
-  char buf[1024];     /* used for argument processor or other temp buffer */
-  char iPath[1024];   /* initial (base) directory for extraction */
+  TCHAR buf[1024];     /* used for argument processor or other temp buffer */
+  TCHAR iPath[1024];   /* initial (base) directory for extraction */
 
   /* setup stack and other general NSIS plugin stuff */
   pluginInit(hwndParent, string_size, variables, stacktop);
 
   /* initialize our logmessage with command called */
-  strcpy(cmdline, "untgz::");
-  strcat(cmdline, cmd);  /* e.g. "extract", "extractV", or "extractFile" */
-  strcat(cmdline, " ");
+  _tcscpy(cmdline, _T("untgz::"));
+  _tcscat(cmdline, cmd);  /* e.g. "extract", "extractV", or "extractFile" */
+  _tcscat(cmdline, _T(" "));
 
   /* usage: untgz::extract* [-j] [-d basedir] tarball.tgz ...other arguments... */
 
@@ -218,45 +218,45 @@ void argParse(HWND hwndParent, int string_size, char *variables, stack_t **stack
 
 
   /* cycle through handling options */
-  while (*buf == '-')
+  while (*buf == static_cast<TCHAR>('-'))
   {
-    if (strcmp(buf, "-d") == 0)       /* see if optional basedir specified */
+    if (_tcscmp(buf, _T("-d")) == 0)       /* see if optional basedir specified */
     {
-      strcat(cmdline, "-d ");
+      _tcscat(cmdline, _T("-d "));
       poparg1(buf, ERR_DOPT_MISSING_DIR);
 
       /* copy over base directory to our logmesage */
-      strcat(cmdline, "'");
-      strcat(cmdline, buf);
-      strcat(cmdline, "' ");
+      _tcscat(cmdline, _T("'"));
+      _tcscat(cmdline, buf);
+      _tcscat(cmdline, _T("' "));
 
 	  /* if basepath is not NULL then copy it over for callee */
-	  if (basePath != NULL) strcpy(basePath, buf);
+	  if (basePath != NULL) _tcscpy(basePath, buf);
 
       /* store so we can set as current directory after opening tarball */
-      strcpy(iPath, buf);
+      _tcscpy(iPath, buf);
     }
-    setOpt("-j", junkPaths, 1)  /* see if optional junkpaths specified */
-    setOpt("-k", keep, SKIP)    /* see if no overwrite mode given */
-    setOpt("-u", keep, UPDATE)  /* see if update mode given */
-    setOpt("-z",     compressionMethod, CM_GZ)    /* compression gzipped */
-    setOpt("-zgz",   compressionMethod, CM_GZ)    /* compression gzipped */
-    setOpt("-znone", compressionMethod, CM_NONE)  /* no compression, plain tar */
-    setOpt("-zlzma", compressionMethod, CM_LZMA)  /* compression lzma */
-    setOpt("-zbz2",  compressionMethod, CM_BZ2)   /* compression bz2 */
-    setOpt("-zZ",    compressionMethod, CM_Z)     /* compression compress */
-    setOpt("-zauto", compressionMethod, CM_AUTO)  /* compression to be determined */
-    else if ((strcmp(buf,"-x")==0)||(strcmp(buf,"-f")==0))  /* ignored options */
+    setOpt(_T("-j"), junkPaths, 1)  /* see if optional junkpaths specified */
+    setOpt(_T("-k"), keep, SKIP)    /* see if no overwrite mode given */
+    setOpt(_T("-u"), keep, UPDATE)  /* see if update mode given */
+    setOpt(_T("-z"),     compressionMethod, CM_GZ)    /* compression gzipped */
+    setOpt(_T("-zgz"),   compressionMethod, CM_GZ)    /* compression gzipped */
+    setOpt(_T("-znone"), compressionMethod, CM_NONE)  /* no compression, plain tar */
+    setOpt(_T("-zlzma"), compressionMethod, CM_LZMA)  /* compression lzma */
+    setOpt(_T("-zbz2"),  compressionMethod, CM_BZ2)   /* compression bz2 */
+    setOpt(_T("-zZ"),    compressionMethod, CM_Z)     /* compression compress */
+    setOpt(_T("-zauto"), compressionMethod, CM_AUTO)  /* compression to be determined */
+    else if ((_tcscmp(buf,_T("-x"))==0)||(_tcscmp(buf,_T("-f"))==0))  /* ignored options */
     {
       /* update our logmessage */
-      strcat(cmdline, buf);
-      strcat(cmdline, " ");
+      _tcscat(cmdline, buf);
+      _tcscat(cmdline, _T(" "));
     }
     else                              /* else invalid optional argument specified */
     {
-      strcat(cmdline, "<<");
-      strcat(cmdline, buf);
-      strcat(cmdline, ">>");
+      _tcscat(cmdline, _T("<<"));
+      _tcscat(cmdline, buf);
+      _tcscat(cmdline, _T(">>"));
 	  PrintMessage(WARN_INVALID_OPTION, buf);
       //exitWithError(ERR_UNKNOWN_OPTION);
     }
@@ -266,13 +266,13 @@ void argParse(HWND hwndParent, int string_size, char *variables, stack_t **stack
   }
 
   /* copy over tarball file name to our logmessage */
-  strcat(cmdline, "'");
-  strcat(cmdline, buf);  
-  strcat(cmdline, "' ");
+  _tcscat(cmdline, _T("'"));
+  _tcscat(cmdline, buf);  
+  _tcscat(cmdline, _T("' "));
 
   /* if auto type specified then determine type */
   if (*compressionMethod == CM_AUTO)
-    *compressionMethod = getFileType(buf);
+    *compressionMethod = getFileType(_T2A(buf));
 
   /* check if compression method requested is supported */
   if ((*compressionMethod == CM_Z)
@@ -290,7 +290,7 @@ void argParse(HWND hwndParent, int string_size, char *variables, stack_t **stack
   /* PrintMessage("Compression Method is %i", *compressionMethod); */
 
   /* open tarball so can read/decompress it */
-  if ((*tgzFile = gzopen(buf,"rb")) == NULL)
+  if ((*tgzFile = gzopen(_T2A(buf),"rb")) == NULL)
     exitWithError(ERR_OPEN_FAILED, buf);
 
   /* set working dir (after opening tarball) to base
@@ -299,7 +299,7 @@ void argParse(HWND hwndParent, int string_size, char *variables, stack_t **stack
   */
   if (*iPath) /* != '\0' if not specified, ie current */
   {
-    makedir(iPath);
+    makedir(_T2A(iPath));
     SetCurrentDirectory(iPath);
   }
 }
@@ -311,21 +311,21 @@ enum ExtractMode {
   EXTRACT_LISTS,   /* extractV()    */
   EXTRACT_SINGLE   /* extractFile() */
 };
-char * funcName[] = { "extract", "extractV", "extractFile" };
+TCHAR * funcName[] = { _T("extract"), _T("extractV"), _T("extractFile") };
 
 /* performs extraction, where mode indicates what files to extract
    as determined by exported function and its arguments
  */
-void doExtraction(enum ExtractMode mode, HWND hwndParent, int string_size, char *variables, stack_t **stacktop)
+void doExtraction(enum ExtractMode mode, HWND hwndParent, int string_size, TCHAR *variables, stack_t **stacktop)
 {
   register int result;
-  char cmdline[1024];     /* just used to display to user */
+  TCHAR cmdline[1024];     /* just used to display to user */
   int junkPaths;          /* default to extracting with paths -- highly insecure */
   int compressionMethod;  /* gzip or other compressed tar file */
   enum KeepMode keep;     /* overwrite mode */
   gzFile tgzFile = NULL;  /* the opened tarball (assuming argParse returns successfully) */
 
-  char buf[1024];         /* used for argument processor or other temp buffer */
+  TCHAR buf[1024];         /* used for argument processor or other temp buffer */
   int iCnt=0, xCnt=0;     /* count for elements in list */
   char **iList=NULL,      /* (char *) list[Cnt] for list of files to extract */
        **xList=NULL;      /* (char *) list[Cnt] for list of files to NOT extract */
@@ -335,7 +335,7 @@ void doExtraction(enum ExtractMode mode, HWND hwndParent, int string_size, char 
            funcName[mode], cmdline, &tgzFile, &compressionMethod, &junkPaths, &keep, NULL);
 
   /* check if everything up to now processed ok, exit if not */
-  if (strcmp(getuservariable(INST_R0), ERR_SUCCESS) != 0) return;
+  if (_tcscmp(getuservariable(INST_R0), ERR_SUCCESS) != 0) return;
 
   /* if ExtractV used, ie variable file lists, then pop lists off stack */
   if (mode == EXTRACT_LISTS)
@@ -344,19 +344,19 @@ void doExtraction(enum ExtractMode mode, HWND hwndParent, int string_size, char 
   /* get next optional argument or end marker */
   poparg(buf, ERR_MISSING_INCLUDE_EXCLUDE_TERMINATOR);
 
-  while ((*buf == '-') && (strcmp(buf, "--") != 0))
+  while ((*buf == static_cast<TCHAR>('-')) && (_tcscmp(buf, _T("--")) != 0))
   {
-    if (strcmp(buf, "-i") == 0)
+    if (_tcscmp(buf, _T("-i")) == 0)
 	{
-      strcat(cmdline, "-i ");
+      _tcscat(cmdline, _T("-i "));
 
       /* get include file list */
       if (getArgList(&iCnt, &iList, cmdline) != 0)
         exitWithError(ERR_BAD_INCLUDE_LIST, "");
 	}
-	else if (strcmp(buf, "-x") == 0)
+	else if (_tcscmp(buf, _T("-x")) == 0)
     {
-      strcat(cmdline, "-x ");
+      _tcscat(cmdline, _T("-x "));
 
       /* get exclude file list */
       if (getArgList(&xCnt, &xList, cmdline) != 0)
@@ -364,9 +364,9 @@ void doExtraction(enum ExtractMode mode, HWND hwndParent, int string_size, char 
     }
 	else                              /* else invalid optional argument specified */
 	{
-      strcat(cmdline, "<<");
-      strcat(cmdline, buf);
-      strcat(cmdline, ">>");
+      _tcscat(cmdline, _T("<<"));
+      _tcscat(cmdline, buf);
+      _tcscat(cmdline, _T(">>"));
 	  PrintMessage(WARN_INVALID_OPTION, buf);
       //exitWithError(ERR_UNKNOWN_OPTION);
 	}
@@ -375,10 +375,10 @@ void doExtraction(enum ExtractMode mode, HWND hwndParent, int string_size, char 
     poparg(buf, ERR_MISSING_INCLUDE_EXCLUDE_TERMINATOR);
   }
 
-  if (strcmp(buf, "--") == 0)
-	  strcat(cmdline, "--");
+  if (_tcscmp(buf, _T("--")) == 0)
+	  _tcscat(cmdline, _T("--"));
   else
-	  strcat(cmdline, "?--?");
+	  _tcscat(cmdline, _T("?--?"));
 
   } /* if (mode == EXTRACT_LISTS) */
   else if (mode == EXTRACT_SINGLE)
@@ -387,9 +387,9 @@ void doExtraction(enum ExtractMode mode, HWND hwndParent, int string_size, char 
     poparg(buf /*filename*/, ERR_MISSING_FILE);
 
     /* copy over file name to extract to our logmessage */
-    strcat(cmdline, "'");
-    strcat(cmdline, buf);
-    strcat(cmdline, "'");
+    _tcscat(cmdline, _T("'"));
+    _tcscat(cmdline, buf);
+    _tcscat(cmdline, _T("'"));
 
 
     junkPaths = 1;
@@ -397,8 +397,8 @@ void doExtraction(enum ExtractMode mode, HWND hwndParent, int string_size, char 
     iCnt = 1;
     iList = (char **)malloc(sizeof(char *));
     /* if (iList == NULL) return -1; /* error allocating needed memory */
-    iList[0] = (char *)malloc(strlen(buf)+1);
-    strcpy(iList[0], buf);  /*filename*/
+    iList[0] = (char *)malloc(strlen(_T2A(buf))+1);
+    strcpy(iList[0], _T2A(buf));  /*filename*/
   }
   /* else if (mode == EXTRACT_ALL) {} */
 
@@ -426,17 +426,17 @@ void doExtraction(enum ExtractMode mode, HWND hwndParent, int string_size, char 
 
 /* Implemenation of exported API */
 
-void extract(HWND hwndParent, int string_size, char *variables, stack_t **stacktop)
+void extract(HWND hwndParent, int string_size, TCHAR *variables, stack_t **stacktop)
 {
   doExtraction(EXTRACT_ALL, hwndParent, string_size, variables, stacktop);
 }
 
-void extractV(HWND hwndParent, int string_size, char *variables, stack_t **stacktop)
+void extractV(HWND hwndParent, int string_size, TCHAR *variables, stack_t **stacktop)
 {
   doExtraction(EXTRACT_LISTS, hwndParent, string_size, variables, stacktop);
 }
 
-void extractFile(HWND hwndParent, int string_size, char *variables, stack_t **stacktop)
+void extractFile(HWND hwndParent, int string_size, TCHAR *variables, stack_t **stacktop)
 {
   doExtraction(EXTRACT_SINGLE, hwndParent, string_size, variables, stacktop);
 }
